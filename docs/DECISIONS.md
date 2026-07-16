@@ -60,6 +60,33 @@
   scripts, user responsibility.
 - **Status:** ADOPTED.
 
+## ADR-007 — Recipe format v1 (finalized in Phase 1)
+- **Date:** 2026-07-16
+- **Context:** ROADMAP Phase 1 calls for finalizing recipe format v1. The draft in
+  ARCHITECTURE §4 needed concrete rules for navigation, comments, and the step set.
+- **Decision:** Recipes are JSON with: `name`, `match_url` (glob guard),
+  optional `url` (navigate on start), `hotkey`, `loop`, `loop_delay_ms`, and
+  `steps[]`. Step actions: `wait_for`, `click`, `swipe`, `type`, `wait`, `loop`,
+  `condition`. Targets are dicts with any of `selector` / `role`+`name` / `text`
+  (+`exact`) / `fallback_selector`, tried most-specific first, across main frame +
+  iframes. Any key beginning with `_` (e.g. `_comment`, `_note`) is documentation
+  and is stripped at load, so authors can annotate freely.
+- **Rationale:** Keeps recipes human-readable, git-friendly, and use-case-agnostic
+  (ADR-006). The `url` field was added because `match_url` is a glob and can't be
+  navigated to directly; `match_url` stays as the run guard.
+- **Status:** ADOPTED (v1). Extend (not break) in later phases.
+
+## ADR-008 — Dev toolchain provisions Python 3.12 via `uv`
+- **Date:** 2026-07-16
+- **Context:** The dev mac only had Python 3.14 (Homebrew), and `brew install
+  python@3.12` stalled on Homebrew's API index. ADR-005 pins 3.12.
+- **Decision:** Use `uv` to provision CPython 3.12 and manage the venv
+  (`uv python install 3.12`, `uv venv --python 3.12`). This honors the 3.12 pin
+  without depending on a system/Homebrew 3.12. pyproject still pins
+  `>=3.12,<3.13`; `uv` is a convenience, not a hard requirement (plain
+  `python3.12 -m venv` works too).
+- **Status:** ADOPTED (dev environment only).
+
 ---
 
 ## TEMPLATE FOR NEW ADRs

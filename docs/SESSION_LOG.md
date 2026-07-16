@@ -75,3 +75,78 @@ Ready to build Phase 1 (the engine + first recipe).
 ---
 
 <!-- Add new sessions below this line -->
+
+## SESSION 1 — Phase 1: the engine + first recipe scaffolding (2026-07-16)
+
+**Goal:** Build Phase 1 per ROADMAP — the use-case-agnostic engine + CLI, prove it
+end-to-end, keep P2P.me as a recipe. Repo was git-init'd and pushed first.
+
+**Built (all committed + pushed to github.com/ChinmayaThakral/truklick):**
+- Packaging: `pyproject.toml` (console script `truklick`, requires-python
+  `>=3.12,<3.13` per ADR-005), `requirements.txt`.
+- Engine (`src/truklick/`, use-case-agnostic, ADR-006):
+  - `browser.py` — persistent Chromium + the five anti-throttle flags + CDP
+    session + keep-alive watchdog (ADR-003, FACT 2).
+  - `cdp_input.py` — raw `Input.dispatchMouseEvent` click / drag-swipe / type /
+    keys. Never high-level `element.click()` (ADR-002).
+  - `targeting.py` — multi-strategy (selector/role/text) across main frame +
+    iframes → bounding-box center; no hardcoded pixels (FACT 4).
+  - `motion.py` — optional easing+jitter motion profile, off by default (the
+    anti-bot "too perfect" refinement from PROVEN_FACTS caveat).
+  - `recipe.py` — recipe format v1 loader/validator (ADR-007); strips
+    `_comment`/`_note`.
+  - `runner.py` — executes wait_for/click/swipe/type/wait/loop/condition; loop
+    mode, pause/resume, single-shot exit, restart-survive.
+  - `hotkey.py` — global start/stop toggle (default Escape); degrades to Ctrl+C.
+  - `cli.py` / `__main__.py` — `truklick run <recipe.json>` with
+    --url/--headless/--once/--wait/--no-hotkey/--human-motion/--profile-dir.
+- Validation assets: `examples/selftest.html` + `recipes/demo/selftest.json`
+  (offline end-to-end proof, no login/network).
+- Tests (12, all green): recipe/motion/targeting unit tests + an **end-to-end
+  test that asserts the engine fires a genuinely trusted click (isTrusted ===
+  true)** through the real modules — the PoC #1 property, now via the engine.
+
+**What worked:**
+- `pytest`: 12/12 green on Python 3.12.13.
+- CLI single-shot run against the self-test page: launch (anti-throttle flags) →
+  navigate → wait_for (found by text) → raw CDP click at computed center → clean
+  exit 0.
+- Loop mode + watchdog: first iteration clicked; when the browser was killed the
+  watchdog auto-relaunched + re-attached (ARCHITECTURE §6, as intended).
+- Graceful shutdown: Ctrl+C/SIGINT during a 30s `wait_for` now exits in ~0.19s.
+
+**What failed / was fixed mid-session:**
+- BUG (fixed): `--once`/non-loop recipes ran their pass then looped back to wait
+  forever instead of exiting. Fixed: single-shot now breaks and exits cleanly.
+- BUG (fixed): `wait_for` blocked for its full timeout ignoring pause/shutdown, so
+  a hotkey/Ctrl+C mid-wait was unresponsive (bad for the toggle exit criterion).
+  Fixed: `wait_for` takes a `should_continue` check and `wait` is chunked;
+  regression test added.
+- ENV: dev mac only had Python 3.14; `brew install python@3.12` stalled on the
+  Homebrew API. Provisioned 3.12.13 via `uv` in ~16s instead (ADR-008). The 3.12
+  pin was honored, NOT relaxed to 3.14.
+
+**Decisions made:** ADR-007 (recipe format v1), ADR-008 (uv-provisioned 3.12 for dev).
+
+**Honest limitation:** "works while minimized" (FACT 2) is a headful/real-hardware
+property already proven on Windows in the PoCs; the mac validation here was
+headless (no window to minimize) and proves the trusted-click + targeting + run-loop
+path end-to-end. The real-site minimized run is the founder's Windows validation.
+
+**NEXT SESSION SHOULD:**
+1. **Capture the real lp.p2p.me DOM** for the Close (and Accept) controls from a
+   live order (founder gets ~1/hour): right-click → Inspect → paste the button
+   HTML/text. Update `recipes/p2p-me/recipe.json` placeholders with real
+   text/selectors. Confirm whether Accept is a click or a slide (swipe) — the
+   recipe note says a drag may no longer be needed; VERIFY against live DOM.
+2. Run `truklick run recipes/p2p-me/recipe.json` headful on the real site with a
+   persistent profile; log in once; test the **Close** button (non-committing)
+   first, minimized, before anything else. Do NOT wire an unattended
+   payment-committing loop — the founder drives accept-step validation.
+3. Once real-site Close works minimized end-to-end via a recipe → Phase 1 exit
+   criteria met. Then start Phase 2 (visual element picker + GUI).
+4. Consider: retry/backoff polish, a non-mutating loop target for a clean loop
+   smoke, and packaging the profile-dir default per-recipe.
+
+**REMINDERS (unchanged):** raw CDP only (ADR-002); P2P.me stays a recipe (ADR-006);
+pin 3.12 (ADR-005/008); never contradict PROVEN_FACTS without a new green proof.

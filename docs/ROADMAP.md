@@ -16,22 +16,24 @@
 Goal: a runnable tool that executes a recipe against the real site, reliably,
 minimized, on **Windows and Linux**.
 
-- [ ] **Core engine (Python + Playwright/CDP):**
-  - [ ] Browser manager: launch/attach Chromium with anti-throttle flags +
+- [x] **Core engine (Python + Playwright/CDP):** (Session 1)
+  - [x] Browser manager: launch/attach Chromium with anti-throttle flags +
         persistent profile (ADR-003).
-  - [ ] CDP input module: raw `Input.dispatchMouseEvent` click + drag/swipe +
+  - [x] CDP input module: raw `Input.dispatchMouseEvent` click + drag/swipe +
         key dispatch (ADR-001/002).
-  - [ ] Targeting module: find element by visible text / selector (multi-strategy
+  - [x] Targeting module: find element by visible text / selector (multi-strategy
         fallback) → bounding box → center coords (FACT 4). Search main frame + iframes.
-  - [ ] Recipe loader + runner: parse JSON recipe → execute steps (wait_for, click,
+  - [x] Recipe loader + runner: parse JSON recipe → execute steps (wait_for, click,
         swipe, type, wait, loop, condition).
-  - [ ] Global hotkey toggle (start/stop), configurable (e.g. Escape).
-  - [ ] Keep-alive supervisor (auto-restart browser/session on crash).
-- [ ] **Recipe format v1** finalized (see ARCHITECTURE §4). JSON, human-readable.
+  - [x] Global hotkey toggle (start/stop), configurable (e.g. Escape).
+  - [x] Keep-alive supervisor (auto-restart browser/session on crash).
+- [x] **Recipe format v1** finalized (ADR-007). JSON, human-readable.
 - [ ] **First recipe:** `recipes/p2p-me/` — authored from the live DOM once captured
       (see SESSION_LOG for captured button labels/HTML). Kept SEPARATE from engine.
+      (placeholder committed; real DOM capture is the next session's job)
 - [ ] **End-to-end debug** on the real site until it works minimized.
-- [ ] CLI to run a recipe: `python -m <tool> run recipes/p2p-me/recipe.json`
+      (engine proven end-to-end offline in Session 1; real-site run pending)
+- [x] CLI to run a recipe: `truklick run <recipe.json>` (also `python -m truklick`)
 
 Exit criteria: run a recipe, minimize the window, watch it work on the real site,
 toggle with hotkey.
