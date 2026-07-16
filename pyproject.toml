@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "truklick"
+version = "0.1.0"
+description = "Open-source, cross-platform platform for trusted, background-capable web automation via CDP. Load a recipe, fire real (isTrusted) clicks at any site — even minimized."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Chinmaya Thakral" }]
+keywords = ["automation", "cdp", "chromium", "playwright", "trusted-input", "recipe"]
+
+# ADR-005 / SESSION_LOG Session 0: pin Python 3.12. Python 3.14 broke the install
+# on Windows (VCRUNTIME140 / python314.dll Bad Image) and lacked prebuilt wheels.
+# Do NOT relax this without a new green proof.
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    "playwright>=1.44",   # browser lifecycle + CDPSession (ADR-005)
+    "pynput>=1.7",        # cross-platform global hotkey toggle
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+truklick = "truklick.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ChinmayaThakral/truklick"
+Repository = "https://github.com/ChinmayaThakral/truklick"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/truklick"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

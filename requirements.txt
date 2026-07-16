@@ -1,0 +1,5 @@
+# Runtime dependencies (mirror of pyproject [project.dependencies]).
+# For development, prefer:  pip install -e ".[dev]"
+# Remember: pin Python 3.12 (ADR-005). After install, run: playwright install chromium
+playwright>=1.44
+pynput>=1.7
