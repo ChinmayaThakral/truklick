@@ -59,6 +59,20 @@
   at runtime, rather than using fixed pixels.
 - **Status:** ✅ PROVEN, [date: 2026-06-27].
 
+## FACT 5 — Trusted CDP click works while minimized on macOS too
+- **Claim:** The trusted-CDP-while-minimized behavior (FACT 2) holds on macOS, not
+  just Windows. The anti-throttle flags + raw `Input.dispatchMouseEvent` land a
+  trusted click on a minimized window on Apple Silicon.
+- **Method note (honest):** The window was minimized programmatically over CDP
+  (`Browser.setWindowBounds` → `windowState:"minimized"`, verified by reading the
+  state back as `"minimized"`), not by a human clicking minimize — but the OS window
+  is in the minimized state either way, which is the property that matters.
+- **Proof:** `poc/poc_test_mac.py` — window state `minimized`, click received on the
+  self-test page, `isTrusted: True`, dispatch ~54ms.
+- **Status:** ✅ PROVEN on macOS (Apple Silicon, real hardware), [date: 2026-07-16].
+- **Still open:** the real *lp.p2p.me* minimized run (on the author's Windows box) is
+  the product-level Phase-1 gate; this fact covers the engine/OS property only.
+
 ---
 
 ## KNOWN CAVEATS (verified, not yet blockers)

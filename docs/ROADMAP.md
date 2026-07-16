@@ -32,7 +32,8 @@ minimized, on **Windows and Linux**.
       (see SESSION_LOG for captured button labels/HTML). Kept SEPARATE from engine.
       (placeholder committed; real DOM capture is the next session's job)
 - [ ] **End-to-end debug** on the real site until it works minimized.
-      (engine proven end-to-end offline in Session 1; real-site run pending)
+      (engine proven end-to-end offline Session 1; minimized trusted-click PROVEN on
+      macOS Session 2 = FACT 5; real-site lp.p2p.me minimized run on Windows still pending)
 - [x] CLI to run a recipe: `truklick run <recipe.json>` (also `python -m truklick`)
 
 Exit criteria: run a recipe, minimize the window, watch it work on the real site,

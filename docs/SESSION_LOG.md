@@ -186,20 +186,33 @@ screens/moments — one static snapshot can't catch both.
   hardware (minimize within 10s → restore → button turns green "TRUSTED" if the click
   landed minimized). macOS minimized behavior is UNPROVEN (only Windows is, FACT 2), so
   this is a genuine test, not a formality.
-- `recipes/p2p-me/recipe.json` — rewritten skeleton for the corrected flow. Old
-  "Slide to Accept" draft removed. State machine: wait_for Close → wait → click Close →
-  wait_for Accept → wait → click Accept → loop. Placeholders + TODOs for capture
-  selectors + author questions.
+- `poc/poc_test_mac.py` — macOS minimized trusted-click PoC (minimizes via CDP
+  `Browser.setWindowBounds`, no human/permission needed).
+- `recipes/p2p-me/recipe.json` — finalized to the CONFIRMED logic: **only** Close +
+  Accept, ultrafast (no inter-click waits; wait_for still guards each click), loop
+  100ms. Old "Slide to Accept" draft removed. `_workflow` documents the author's
+  toggle loop (see decision below).
+
+**PROVEN this session — FACT 5: trusted click works minimized on macOS too.**
+Ran `poc/poc_test_mac.py`: window state `minimized` (via CDP), click received,
+`isTrusted: True`, ~54ms. Recorded as PROVEN_FACTS FACT 5. This closes the last
+Phase-1 box reachable without a live order (the engine/OS minimized property on a 2nd
+OS). The real lp.p2p.me minimized run on Windows is still the product-level gate.
+
+**Author's confirmed workflow (locked):** phone rings 3x/order (assigned / accepted /
+action-needed). Script auto-Closes + auto-Accepts fast, non-stop. On the 3rd ring the
+author TOGGLES OFF (hotkey), handles that one order on the phone (~6-7 min: verify a buy
+where money arrived, or send for a sell), then TOGGLES BACK ON. The toggle-pause is what
+prevents accepting more orders than can be worked one at a time. Script does ONLY
+Close+Accept; all payment/verify is manual on the phone.
 
 **Decision (author):** **AUTO-ACCEPT** mode — recipe auto-clicks the home Accept, fully
-hands-off. Author chose this deliberately knowing it removes the prior phone-verify step
-before commit. Recipe defaults to this; reverting to close-only = delete the final
-"click Accept" step (documented in the recipe's `_mode`).
+hands-off (Close+Accept only). Chosen deliberately knowing it removes the prior
+phone-verify-before-accept step. Revert to close-only = delete the final "click Accept"
+step (documented in the recipe's `_mode`).
 
 **Not done / open (needs the author + real hardware):**
-1. Run the **Mac minimized self-test** (interactive — needs a human to minimize; can't be
-   done unattended). This is the last Phase-1 checkbox reachable without a live order.
-2. On the next live order: run `scripts/capture_helper.py`, capture **Close** (popup) then
+1. On the next live order: run `scripts/capture_helper.py`, capture **Close** (popup) then
    **Accept** (home), send the two JSONs. Then fill the recipe placeholders with real
    selectors + frame paths.
 3. Real-site minimized run of the filled recipe on Windows = Phase 1 exit criteria met.

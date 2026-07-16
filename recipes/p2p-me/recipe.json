@@ -1,55 +1,44 @@
 {
-  "_comment": "FIRST EXAMPLE RECIPE — SKELETON (user content, kept out of the engine, ADR-006). Reflects the CORRECTED flow (Session 2): an order POPUP shows a Close button; you click Close; the order then maps to the HOME screen as a clean Accept button. (The old 'Slide to Accept' draft was wrong — no drag in the current flow.) The targets below are PLACEHOLDERS: fill them from a capture (see docs/CAPTURE_GUIDE.md + scripts/capture_helper.py). Two modes — see _mode below.",
+  "_comment": "FIRST EXAMPLE RECIPE — SKELETON (user content, ADR-006). CONFIRMED flow (Session 2): the script does ONLY two things per order — click Close on the popup, then click the clean Accept button that appears on the home screen. Everything else (the actual buy/sell payment: verifying money received, or sending money) the author does MANUALLY on their phone. Targets below are PLACEHOLDERS — fill from a capture (docs/CAPTURE_GUIDE.md + scripts/capture_helper.py).",
 
-  "_mode": "AUTO-ACCEPT (chosen by author, Session 2): fully hands-off — auto-Close each popup, then auto-click the home-screen Accept. This removes the manual phone-verify step before commit; that trade-off was decided deliberately. To revert to CLOSE-ONLY (safer), delete the final 'click Accept' step so the recipe only dismisses popups and leaves Accept for you to tap.",
+  "_workflow": "Author's real loop: the phone rings 3x per order (1 assigned / 2 accepted / 3 action-needed). The script auto-Closes + auto-Accepts fast and non-stop. On the 3rd ring the author TOGGLES THE SCRIPT OFF (presses the hotkey), handles that one order on the phone (~6-7 min: swipe/verify for a buy order where money was received, or send money for a sell order), then TOGGLES BACK ON. Pausing while handling an order is what keeps the script from accepting MORE orders than the author can work one at a time — the toggle is the whole point.",
 
-  "_open_questions_for_the_author": [
-    "After Accept is clicked/tapped, what happens? Does the order vanish and the home Accept disappear until the next order? (The engine already skips a step whose target isn't found, so a blind loop is safe, but knowing this lets us tune it.)",
-    "Between clicking Close and the home Accept appearing, is there a load/animation delay? (We use wait_for, not a fixed sleep, so it self-adjusts — just confirm it appears reliably.)",
-    "Does a Close ever appear WITHOUT an order (other modals)? If so we make the Close target more specific from the capture (selector/frame), not just text='Close'."
-  ],
+  "_mode": "AUTO-ACCEPT, fast. No inter-click delays (author wants it ultrafast); wait_for still guards each click so we never click a not-yet-rendered element. Revert to close-only = delete the final 'click Accept' step.",
+
+  "_placeholders_todo": "Replace text:'Close' and text:'Accept' with the real targets from capture (add css_selector/xpath; note the frame — main vs iframe). If a bare 'Close' can appear on non-order modals, make it more specific so the script only closes real order popups.",
 
   "name": "P2P.me — auto accept & close",
   "match_url": "https://lp.p2p.me/*",
   "url": "https://lp.p2p.me",
   "hotkey": "Escape",
   "loop": true,
-  "loop_delay_ms": 500,
+  "loop_delay_ms": 100,
 
   "steps": [
     {
       "action": "wait_for",
       "target": { "text": "Close", "fallback_selector": null },
       "timeout_ms": 60000,
-      "_TODO": "Replace with real Close from capture: keep text if reliable, add css_selector/xpath, and note its frame (main vs iframe). 60s wait = 'wait for the next order popup'."
-    },
-    {
-      "action": "wait",
-      "ms": 300,
-      "_note": "Let the popup finish animating/settling before the trusted click (gentle, not blazing)."
+      "_note": "Waits for the next order popup (up to 60s, then the loop re-arms and keeps waiting). Pausing here via the hotkey is the clean toggle-off point.",
+      "_TODO": "real Close selector from capture"
     },
     {
       "action": "click",
       "target": { "text": "Close" },
-      "_TODO": "Real Close selector from capture."
+      "_TODO": "real Close selector from capture"
     },
     {
       "action": "wait_for",
       "target": { "text": "Accept", "fallback_selector": null },
       "timeout_ms": 15000,
-      "_note": "Wait for the home-screen Accept to appear after Close (it may animate in). If it never appears the pass aborts and retries next loop (safe).",
-      "_TODO": "Real Accept from capture (the clean home-screen button, not a slider)."
-    },
-    {
-      "action": "wait",
-      "ms": 300,
-      "_note": "Small settle before the Accept click (gentle, not blazing)."
+      "_note": "Home-screen Accept appears after Close (may animate in); wait_for it rather than a fixed sleep, so it's as fast as the site allows without clicking too early.",
+      "_TODO": "real Accept selector from capture (clean home-screen button, not a slider)"
     },
     {
       "action": "click",
       "target": { "text": "Accept" },
-      "_TODO": "Real Accept selector from capture. THIS is the auto-accept step — delete it to revert to close-only.",
-      "_note": "Fires the trusted click on the home-screen Accept, then the loop restarts and waits for the next order popup."
+      "_TODO": "real Accept selector from capture. THIS is the auto-accept step — delete it to revert to close-only.",
+      "_note": "Fires the trusted click on Accept, then the loop restarts and waits for the next order popup."
     }
   ]
 }
