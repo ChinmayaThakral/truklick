@@ -1,0 +1,14 @@
+{
+  "_comment": "MAC/DESKTOP MINIMIZED SELF-TEST — closes the last Phase-1 box on real hardware. Proves the ENGINE fires a trusted click while the window is MINIMIZED. On Windows this is PROVEN (PROVEN_FACTS FACT 2); on macOS it is UNPROVEN and this settles it. Run headful (no --headless), minimize within the first 10s, then restore and watch the button turn green 'TRUSTED'. See docs/CAPTURE_GUIDE.md. Command: truklick run recipes/demo/minimized_selftest.json --url \"file://$(pwd)/examples/selftest.html\"",
+  "name": "Minimized self-test",
+  "match_url": "file://*",
+  "url": null,
+  "hotkey": "Escape",
+  "loop": false,
+  "steps": [
+    { "action": "wait", "ms": 10000, "_note": "You have ~10s after the window opens to MINIMIZE it. No hotkey/permission needed." },
+    { "action": "wait_for", "target": { "text": "Self-Test Target" }, "timeout_ms": 5000 },
+    { "action": "click", "target": { "text": "Self-Test Target" }, "_note": "Fires while (hopefully) minimized." },
+    { "action": "wait", "ms": 20000, "_note": "Window stays open 20s — RESTORE it and check: green 'TRUSTED' = click landed minimized." }
+  ]
+}
