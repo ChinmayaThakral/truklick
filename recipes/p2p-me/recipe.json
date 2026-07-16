@@ -1,0 +1,30 @@
+{
+  "_comment": "FIRST EXAMPLE RECIPE — DRAFT. This is user content, kept separate from the engine (ADR-006). The button targets below are PLACEHOLDERS. Capture the real DOM from the live lp.p2p.me order popup (right-click the button -> Inspect) and replace the 'target' selectors/text with the real ones. The founder gets ~1 order/hour, so grab the Close (and Accept) button HTML when an order appears. Until then, the runner can be tested against any always-present dashboard element.",
+  "name": "P2P.me — accept & close",
+  "match_url": "https://lp.p2p.me/*",
+  "hotkey": "Escape",
+  "loop": true,
+  "loop_delay_ms": 200,
+  "steps": [
+    {
+      "action": "wait_for",
+      "target": { "text": "Close", "fallback_selector": null },
+      "timeout_ms": 30000,
+      "_note": "Replace with real Close button text/selector from live DOM."
+    },
+    {
+      "action": "click",
+      "target": { "text": "Close" },
+      "_note": "Close dismisses the popup (non-committing)."
+    },
+    {
+      "action": "wait",
+      "ms": 100
+    },
+    {
+      "action": "click",
+      "target": { "text": "Slide to Accept" },
+      "_note": "Replace with the real accept control. If it is a slider/drag, use a 'swipe' action once the engine supports it (mousedown -> moves -> mouseup via raw CDP). Founder confirmed current flow no longer needs a drag-swipe for P2P as of Session 0 — CONFIRM against live DOM before finalizing."
+    }
+  ]
+}
