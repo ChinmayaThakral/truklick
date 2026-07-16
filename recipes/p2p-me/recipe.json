@@ -1,9 +1,7 @@
 {
   "_comment": "FIRST EXAMPLE RECIPE — SKELETON (user content, kept out of the engine, ADR-006). Reflects the CORRECTED flow (Session 2): an order POPUP shows a Close button; you click Close; the order then maps to the HOME screen as a clean Accept button. (The old 'Slide to Accept' draft was wrong — no drag in the current flow.) The targets below are PLACEHOLDERS: fill them from a capture (see docs/CAPTURE_GUIDE.md + scripts/capture_helper.py). Two modes — see _mode below.",
 
-  "_mode": "DEFAULT = CLOSE-ONLY (safe): auto-Close each popup and leave the home-screen Accept for you to tap (keeps your phone verify step). To make it AUTO-ACCEPT (hands-off, removes your manual verify), append the step in _accept_step_to_enable after the last step. This is a real fork — decide it deliberately.",
-
-  "_accept_step_to_enable": { "action": "click", "target": { "text": "Accept", "fallback_selector": null }, "_note": "Paste this as a new last step ONLY if you want auto-Accept. Replace target with the real Accept from capture." },
+  "_mode": "AUTO-ACCEPT (chosen by author, Session 2): fully hands-off — auto-Close each popup, then auto-click the home-screen Accept. This removes the manual phone-verify step before commit; that trade-off was decided deliberately. To revert to CLOSE-ONLY (safer), delete the final 'click Accept' step so the recipe only dismisses popups and leaves Accept for you to tap.",
 
   "_open_questions_for_the_author": [
     "After Accept is clicked/tapped, what happens? Does the order vanish and the home Accept disappear until the next order? (The engine already skips a step whose target isn't found, so a blind loop is safe, but knowing this lets us tune it.)",
@@ -11,7 +9,7 @@
     "Does a Close ever appear WITHOUT an order (other modals)? If so we make the Close target more specific from the capture (selector/frame), not just text='Close'."
   ],
 
-  "name": "P2P.me — close order popups (Accept left to you)",
+  "name": "P2P.me — auto accept & close",
   "match_url": "https://lp.p2p.me/*",
   "url": "https://lp.p2p.me",
   "hotkey": "Escape",
@@ -39,8 +37,19 @@
       "action": "wait_for",
       "target": { "text": "Accept", "fallback_selector": null },
       "timeout_ms": 15000,
-      "_note": "Confirms the home-screen Accept appeared after Close. In CLOSE-ONLY mode this just verifies the flow reached home; then the loop restarts and waits for the next popup. If missing, the pass aborts and retries (safe).",
+      "_note": "Wait for the home-screen Accept to appear after Close (it may animate in). If it never appears the pass aborts and retries next loop (safe).",
       "_TODO": "Real Accept from capture (the clean home-screen button, not a slider)."
+    },
+    {
+      "action": "wait",
+      "ms": 300,
+      "_note": "Small settle before the Accept click (gentle, not blazing)."
+    },
+    {
+      "action": "click",
+      "target": { "text": "Accept" },
+      "_TODO": "Real Accept selector from capture. THIS is the auto-accept step — delete it to revert to close-only.",
+      "_note": "Fires the trusted click on the home-screen Accept, then the loop restarts and waits for the next order popup."
     }
   ]
 }

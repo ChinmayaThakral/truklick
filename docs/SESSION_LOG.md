@@ -161,3 +161,49 @@ shadow roots; reuse targeting vocabulary; PoC-first). Gitignored `captures/`.
 capture how the lp.p2p.me popup renders: main frame / iframe / shadow) BEFORE building
 the scanner, so it's designed against reality.** No ADR yet — the CDP-vs-extension
 decision (ADR-009) gets recorded when the feature is actually built.
+
+---
+
+## SESSION 2 — Capture tooling + corrected P2P flow + Phase-1 prep (2026-07-16)
+
+**Context:** Prep work doable from the Mac while away from the Windows box / a live
+order. No engine changes; tooling, docs, and the real recipe skeleton.
+
+**Corrected P2P flow (from the author):** order popup shows **Close** (+ a "Slide to
+Accept" that we do NOT use); you click **Close**; the order then maps to the **home
+screen** as a clean **Accept button** (no slider). So the two targets live on TWO
+screens/moments — one static snapshot can't catch both.
+
+**Built / added (committed + pushed):**
+- `scripts/capture_helper.py` — press-ENTER DOM capture (main frame + iframes), prints a
+  labelled list with `frame=` per element, saves full strategy set to `captures/`.
+  Smoke-tested across a nested iframe (Accept in main, Close in iframe, both with
+  selector+xpath). In-frame rects recorded but NOT trusted for clicking (recipes
+  re-find by selector/text). `captures/` gitignored.
+- `docs/CAPTURE_GUIDE.md` — non-coder playbook: two-press capture flow, **practice-first**
+  on any modal site, the **Mac minimized self-test** command, what to send back.
+- `recipes/demo/minimized_selftest.json` — closes the last Phase-1 box on real Mac
+  hardware (minimize within 10s → restore → button turns green "TRUSTED" if the click
+  landed minimized). macOS minimized behavior is UNPROVEN (only Windows is, FACT 2), so
+  this is a genuine test, not a formality.
+- `recipes/p2p-me/recipe.json` — rewritten skeleton for the corrected flow. Old
+  "Slide to Accept" draft removed. State machine: wait_for Close → wait → click Close →
+  wait_for Accept → wait → click Accept → loop. Placeholders + TODOs for capture
+  selectors + author questions.
+
+**Decision (author):** **AUTO-ACCEPT** mode — recipe auto-clicks the home Accept, fully
+hands-off. Author chose this deliberately knowing it removes the prior phone-verify step
+before commit. Recipe defaults to this; reverting to close-only = delete the final
+"click Accept" step (documented in the recipe's `_mode`).
+
+**Not done / open (needs the author + real hardware):**
+1. Run the **Mac minimized self-test** (interactive — needs a human to minimize; can't be
+   done unattended). This is the last Phase-1 checkbox reachable without a live order.
+2. On the next live order: run `scripts/capture_helper.py`, capture **Close** (popup) then
+   **Accept** (home), send the two JSONs. Then fill the recipe placeholders with real
+   selectors + frame paths.
+3. Real-site minimized run of the filled recipe on Windows = Phase 1 exit criteria met.
+4. Author to answer the `_open_questions_for_the_author` in the recipe (post-Accept
+   behavior, animation delay, whether Close appears without an order).
+
+**No PROVEN_FACTS changed. Reminders unchanged (raw CDP, P2P stays a recipe, pin 3.12).**
