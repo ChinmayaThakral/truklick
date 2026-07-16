@@ -150,3 +150,14 @@ path end-to-end. The real-site minimized run is the founder's Windows validation
 
 **REMINDERS (unchanged):** raw CDP only (ADR-002); P2P.me stays a recipe (ADR-006);
 pin 3.12 (ADR-005/008); never contradict PROVEN_FACTS without a new green proof.
+
+**Addendum (2026-07-16):** Added `docs/FEATURE_SCANNER.md` — a Phase-2 spec for an
+objective DOM "Capture Mode" (CDP-injected, captures every visible element with the
+full strategy set + frame path; no noise filtering). Spec only, NOT implemented. It
+carries reviewer corrections (iframe reach is wider than in-page-JS assumes; iframe
+bbox must use main-frame coords via `bounding_box()`, else clicks lie; recurse open
+shadow roots; reuse targeting vocabulary; PoC-first). Gitignored `captures/`.
+**Phase 1's real-site *minimized* run on Windows is still the open gate — do that (and
+capture how the lp.p2p.me popup renders: main frame / iframe / shadow) BEFORE building
+the scanner, so it's designed against reality.** No ADR yet — the CDP-vs-extension
+decision (ADR-009) gets recorded when the feature is actually built.
