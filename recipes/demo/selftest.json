@@ -1,0 +1,13 @@
+{
+  "_comment": "Engine self-test recipe (example / user content, ADR-006). Points at the local examples/selftest.html page so you can prove the full loop — launch, target by text, raw trusted CDP click — end to end, minimized, with no login or network. Run it with an absolute file URL, e.g.:  truklick run recipes/demo/selftest.json --url file:///ABSOLUTE/PATH/truklick/examples/selftest.html --once",
+  "name": "Truklick self-test",
+  "match_url": "file://*",
+  "url": null,
+  "hotkey": "Escape",
+  "loop": false,
+  "steps": [
+    { "action": "wait_for", "target": { "text": "Self-Test Target" }, "timeout_ms": 10000 },
+    { "action": "click", "target": { "text": "Self-Test Target" } },
+    { "action": "wait", "ms": 300 }
+  ]
+}
