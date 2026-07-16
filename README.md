@@ -72,8 +72,20 @@ docs/
 poc/
   poc_test_windows.py  # PROOF: trusted CDP click while minimized (local page)
   poc_test_p2p.py      # PROOF: same, on the real logged-in site
+src/truklick/          # the engine (use-case-agnostic core)
+  browser.py           #   launch Chromium: anti-throttle flags + persistent profile
+  cdp_input.py         #   raw CDP trusted input: click / drag / type / keys
+  targeting.py         #   resilient element location (text/role/selector, iframes)
+  motion.py            #   optional human-like motion (easing+jitter)
+  recipe.py            #   recipe format v1: load + validate
+  runner.py            #   execute steps, loop, hotkey toggle, restart-survive
+  hotkey.py            #   global start/stop hotkey
+  cli.py               #   `truklick run <recipe.json>`
+examples/selftest.html # local page to prove the engine end-to-end (no login)
 recipes/
-  p2p-me/            # first example recipe (user content)
+  demo/selftest.json   # engine self-test recipe
+  p2p-me/              # first example recipe (user content)
+tests/                 # unit + end-to-end engine tests
 ```
 
 ## Quick start (dev, Phase 1)
@@ -81,10 +93,31 @@ recipes/
 Requires **Python 3.12** (not 3.14 — see SESSION_LOG for why).
 
 ```bash
-python -m pip install playwright
-python -m playwright install chromium
-# run a PoC to see the foundation for yourself:
-python poc/poc_test_windows.py
+python3.12 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+playwright install chromium
+```
+
+### Run a recipe
+
+```bash
+# Prove the engine end-to-end against the bundled self-test page (no login/network):
+truklick run recipes/demo/selftest.json \
+  --url "file://$(pwd)/examples/selftest.html" --once
+
+# General form:
+truklick run <recipe.json> [--url URL] [--headless] [--once] [--wait]
+                           [--human-motion] [--no-hotkey] [--profile-dir DIR]
+```
+
+Press the recipe's **hotkey** (default `Escape`) to start/stop; `Ctrl+C` to quit.
+The Chromium profile is persistent (logins survive restarts) and gitignored.
+
+### Verify the foundation for yourself
+
+```bash
+python poc/poc_test_windows.py     # trusted CDP click while minimized (local page)
+pytest -q                          # unit + end-to-end engine tests
 ```
 
 ## License
