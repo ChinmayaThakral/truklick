@@ -10,7 +10,7 @@ import sys
 from PyInstaller.utils.hooks import collect_all
 
 datas, binaries, hiddenimports = [], [], []
-for pkg in ("playwright", "pynput"):
+for pkg in ("playwright", "pynput", "certifi"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b

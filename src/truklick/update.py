@@ -20,6 +20,7 @@ import json
 import os
 import sys
 import time
+import ssl
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,7 +34,25 @@ log = get_logger("update")
 RELEASES_API = "https://api.github.com/repos/ChinmayaThakral/truklick/releases/latest"
 RELEASES_PAGE = "https://github.com/ChinmayaThakral/truklick/releases/latest"
 CHECK_INTERVAL_S = 6 * 3600      # don't hammer the API
+_LAST_ERROR: str = ""            # why the last check failed, for reporting
 TIMEOUT_S = 4
+
+
+def _ssl_context() -> Optional[ssl.SSLContext]:
+    """A context with CA certs that works inside a frozen binary.
+
+    PyInstaller bundles do not carry the system trust store, so a plain
+    urlopen() fails with CERTIFICATE_VERIFY_FAILED for every user of a downloaded
+    build — silently, if you are not looking. certifi ships the CA bundle with us.
+    """
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        try:
+            return ssl.create_default_context()
+        except Exception:
+            return None
 
 
 @dataclass
@@ -106,10 +125,12 @@ def check(force: bool = False) -> Optional[UpdateInfo]:
         req = urllib.request.Request(
             RELEASES_API, headers={"Accept": "application/vnd.github+json",
                                    "User-Agent": f"truklick/{__version__}"})
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S,
+                                    context=_ssl_context()) as r:
             tag = json.loads(r.read().decode("utf-8")).get("tag_name", "")
     except Exception as exc:
         log.debug("update check failed (ignored): %s", exc)
+        globals()["_LAST_ERROR"] = str(exc)
         return None
     if not tag:
         return None

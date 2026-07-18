@@ -566,3 +566,13 @@ on every user's machine, and we have nothing to verify a download against.
    instead — a delay paid only when the browser says something is actually moving,
    so the fast path is unaffected.
 45 tests green.
+
+**v0.1.4 shipped with a broken update checker — caught by testing the published
+binary, not the source.** From a downloaded build every HTTPS call failed with
+`CERTIFICATE_VERIFY_FAILED`: PyInstaller bundles do not carry the system trust store.
+It worked perfectly from source, so source-only testing would never have found it.
+Fixed by bundling `certifi` and building an SSL context from it. Also fixed the error
+message, which blamed "offline?" for what was actually a certificate failure —
+misdiagnosing the cause in the one message the user would ever see.
+Lesson, repeated for the third time tonight: **test the artifact you ship, not the
+code you wrote.** The same discipline caught the frozen-Chromium-path bug earlier.

@@ -200,7 +200,9 @@ def main(argv: list[str] | None = None) -> int:
         from .update import check
         info = check(force=True)
         if info is None:
-            print("  Could not check for updates (offline?).")
+            from .update import _LAST_ERROR
+            reason = _LAST_ERROR or "no response"
+            print(f"  Could not check for updates: {reason}")
             return 1
         if info.available:
             print(f"  Update available: v{info.latest}  (you have v{info.current})")
