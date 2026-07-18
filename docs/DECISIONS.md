@@ -150,6 +150,24 @@
   assertion, because it trains users to ignore failures.
 - **Status:** ADOPTED.
 
+## ADR-014 — Update CHECKING, not silent self-update
+- **Date:** 2026-07-19
+- **Context:** Users should learn when a newer release exists. The obvious ask is a
+  self-updater that downloads and replaces the binary automatically.
+- **Decision:** Detect and inform; never self-replace. `truklick update` checks
+  explicitly, a quiet line appears at startup, and the control panel shows a banner
+  linking to Releases. The human chooses to download.
+- **Rationale:** Truklick drives logged-in sessions, sometimes financial dashboards.
+  A background process that fetches an executable and replaces itself turns any
+  compromise of the release channel (stolen token, hijacked CI, MITM) into arbitrary
+  code execution on every user's machine with no human in the loop. Our builds are
+  also **unsigned**, so a downloaded artifact cannot be verified against anything.
+  Auto-update becomes defensible only once releases are signed AND the signature is
+  verified before install — not before.
+- **Operational notes:** one 4s-timeout request, cached 6h on disk, all failures
+  swallowed. An update check must never delay startup or break a running recipe.
+- **Status:** ADOPTED. Revisit if/when code signing + notarization land.
+
 ---
 
 ## TEMPLATE FOR NEW ADRs

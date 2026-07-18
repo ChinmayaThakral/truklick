@@ -134,6 +134,8 @@ pre{background:#010409;border:1px solid #21262d;border-radius:10px;padding:14px;
 <header><span id=dot></span><h1>Truklick</h1>
 <span class=tag>trusted browser automation &middot; runs recipes</span></header>
 <main>
+ <div id=upd style="display:none;margin-bottom:16px;padding:11px 14px;border-radius:8px;
+   background:#1f2a37;border:1px solid #2f4562;font-size:13.5px"></div>
  <div class=row>
    <select id=recipe></select>
    <button id=go>Start</button>
@@ -190,6 +192,12 @@ $('#save').onclick=async()=>{
 $('#go').onclick=async()=>{await fetch('/api/start',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({recipe:$('#recipe').value})});refresh();};
 $('#halt').onclick=async()=>{await fetch('/api/stop',{method:'POST'});refresh();};
+fetch('/api/update').then(r=>r.json()).then(u=>{
+  if(u.available){ $('#upd').style.display='block';
+    $('#upd').innerHTML = `A newer version is available: <b>v${u.latest}</b> `
+      + `(you have v${u.current}) &nbsp;<a href="${u.url}" target="_blank" `
+      + `style="color:#79c0ff">Download</a>`; }
+}).catch(()=>{});
 (async()=>{
   const rs=await fetch('/api/recipes').then(r=>r.json());
   $('#recipe').innerHTML=rs.map(r=>`<option value="${r}">${r}</option>`).join('')
@@ -223,6 +231,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, json.dumps({"error": str(exc)}))
         if self.path == "/":
             return self._send(200, PAGE, "text/html; charset=utf-8")
+        if self.path == "/api/update":
+            try:
+                from .update import check
+                i = check()
+                return self._send(200, json.dumps(
+                    {"available": bool(i and i.available),
+                     "latest": i.latest if i else None,
+                     "current": i.current if i else None,
+                     "url": i.url if i else None}))
+            except Exception:
+                return self._send(200, json.dumps({"available": False}))
         if self.path == "/api/status":
             return self._send(200, json.dumps(status()))
         if self.path == "/api/recipes":

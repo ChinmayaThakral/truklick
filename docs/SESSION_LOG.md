@@ -547,3 +547,22 @@ latency is now far below the network round-trip to the site. Going 15ms -> 3ms c
 bottleneck has moved off this machine.** If order win-rate is the goal, the next
 useful measurement is win-rate at poll=2 vs poll=10 over many orders — not more
 micro-optimisation.
+
+**Update checking added (ADR-014).** `truklick update`, a quiet startup line, and a
+banner in the control panel. Deliberately NOT a silent self-updater — see ADR-014: a
+background self-replacing unsigned binary turns a release-channel compromise into RCE
+on every user's machine, and we have nothing to verify a download against.
+
+**Two real bugs this work surfaced:**
+1. **Version drift.** v0.1.3 shipped while the code still reported `0.1.0`, so the
+   update checker told everyone on the LATEST build that an update was available —
+   permanently. Fixed, and `test_code_version_matches_packaging` now fails the build
+   if `__version__` and pyproject ever disagree again.
+2. **rAF is not a clock in headless.** The animation-aware stability change used
+   `requestAnimationFrame` to sample twice; in headless Chromium rAF resolves
+   near-instantly, so both samples land at the same moment and a genuinely moving
+   element passed as stable. The slow-drift safety test caught it. Now, when
+   `getAnimations()` reports motion, we sample across **real elapsed time** (20ms)
+   instead — a delay paid only when the browser says something is actually moving,
+   so the fast path is unaffected.
+45 tests green.

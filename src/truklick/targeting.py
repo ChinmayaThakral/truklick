@@ -182,9 +182,12 @@ async ([spec]) => {
 
   let b = el.getBoundingClientRect();
   if (inMotion) {
-    // moving: fall back to sampling across a frame, and refuse if still shifting
+    // Something IS animating this element. Sample across real elapsed time, not
+    // requestAnimationFrame: rAF resolves near-instantly in headless Chromium, so
+    // both samples land at the same moment and movement goes undetected. A real
+    // delay is only paid when the browser says something is actually moving.
     const a0 = b;
-    await raf();
+    await new Promise(r => setTimeout(r, 20));
     el = pick();
     if (!el) return null;
     b = el.getBoundingClientRect();

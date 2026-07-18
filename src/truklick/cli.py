@@ -70,6 +70,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Recipe runs once instead of looping")
     rec.add_argument("-v", "--verbose", action="store_true")
 
+    up = sub.add_parser("update", help="Check whether a newer release exists")
+    up.add_argument("-v", "--verbose", action="store_true")
+
     g = sub.add_parser("gui", help="Open the control panel (no terminal needed)")
     g.add_argument("--port", type=int, default=8765)
     g.add_argument("--no-open", action="store_true", help="Don't open a browser")
@@ -193,7 +196,22 @@ def main(argv: list[str] | None = None) -> int:
         argv = ["gui"]
     args = build_parser().parse_args(argv)
     setup_logging(logging.DEBUG if getattr(args, "verbose", False) else logging.INFO)
+    if args.command == "update":
+        from .update import check
+        info = check(force=True)
+        if info is None:
+            print("  Could not check for updates (offline?).")
+            return 1
+        if info.available:
+            print(f"  Update available: v{info.latest}  (you have v{info.current})")
+            print(f"  Download: {info.url}")
+        else:
+            print(f"  You are on the latest version (v{info.current}).")
+        return 0
+
     if args.command == "gui":
+        from .update import notify_if_available
+        notify_if_available()
         from .bootstrap import ensure_chromium
         ensure_chromium()
         from .gui import serve
@@ -208,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     if args.command == "run":
+        from .update import notify_if_available
+        notify_if_available()
         if not args.attach:
             from .bootstrap import ensure_chromium
             ensure_chromium()   # before the loop starts
