@@ -12,6 +12,7 @@ old find() returned a coordinate that clicked the OVERLAY; find_click_point refu
 That is a genuine correctness improvement — just not (necessarily) the live bug fix.
 """
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -41,8 +42,7 @@ STATIC = """<button id="b" style="position:absolute;top:100px;left:100px"
 
 
 async def _click_and_report(html, target):
-    bm = BrowserManager(BrowserConfig(profile_dir=None, headless=True))
-    bm.config.profile_dir = __import__("pathlib").Path("/tmp/tk_stab_profile")
+    bm = BrowserManager(BrowserConfig(profile_dir=Path("/tmp/tk_stab_profile"), headless=True))
     await bm.start()
     try:
         page = await bm.ensure_page()
@@ -87,3 +87,44 @@ def test_occluded_element_is_refused_not_misclicked():
     click the overlay instead."""
     res = _run(OCCLUDED)
     assert res["hit"] is False, "returned a click point that would hit the overlay"
+
+
+# Slow drift: ~0.8px/frame, near the 0.5px movement threshold. This is the case that
+# decides whether ONE animation frame of stability checking is enough (it is — the
+# resolver refuses rather than clicking a stale position). Guards the speed change
+# that took appear->click from ~74ms to ~24ms.
+SLOW_DRIFT = """<style>@keyframes d{from{top:120px}to{top:320px}}
+#b{position:fixed;left:100px;top:120px;width:90px;height:34px;animation:d 4s linear forwards}</style>
+<button id="b" onclick="window.__clicked=true">Accept</button>"""
+
+
+async def _resolve_mid_animation(html, delay=0.4):
+    """Resolve while the element is genuinely MID-animation.
+
+    Resolving immediately after set_content is not a valid test: a CSS animation has
+    not started moving yet, so two samples legitimately match and the element really
+    is momentarily stationary. The delay is what makes this reproduce the hazard.
+    """
+    bm = BrowserManager(BrowserConfig(profile_dir=Path("/tmp/tk_slowdrift"),
+                                      headless=True))
+    await bm.start()
+    try:
+        page = await bm.ensure_page()
+        await page.set_content(html)
+        await asyncio.sleep(delay)
+        return await targeting.find_click_point(page, {"text": "Accept", "exact": True})
+    finally:
+        await bm.stop()
+
+
+def test_slow_drift_is_refused_not_misclicked():
+    """A slowly-moving target must never be clicked at a stale position."""
+    try:
+        hit = asyncio.run(_resolve_mid_animation(SLOW_DRIFT))
+    except Exception as exc:
+        if "Executable doesn't exist" in str(exc):
+            pytest.skip("Chromium not installed")
+        raise
+    assert hit is None, (
+        "returned a click point for a still-moving element — the click would land "
+        "where the element used to be")

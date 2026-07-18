@@ -164,9 +164,15 @@ async ([spec]) => {
   let el = pick();
   if (!el) return null;
 
+  if (spec.detectOnly) {              // polling for presence: no stability/hit checks
+    const r = el.getBoundingClientRect();
+    return {x: r.x, y: r.y, width: r.width, height: r.height,
+            cx: r.x + r.width / 2, cy: r.y + r.height / 2, detect: true};
+  }
+
   // stability: same box across two animation frames (catches slide-in dialogs)
   let a = el.getBoundingClientRect();
-  await raf(); await raf();
+  await raf();
   el = pick();
   if (!el) return null;
   let b = el.getBoundingClientRect();
@@ -314,7 +320,7 @@ async def wait_for(page: Page, target: dict, timeout_ms: int = 30000,
         # one round-trip probe when the target shape allows it
         if spec is not None:
             try:
-                res = await page.evaluate(_FAST_JS, [spec])
+                res = await page.evaluate(_FAST_JS, [{**spec, "detectOnly": True}])
             except Exception:
                 res = None
                 spec = None  # fall back permanently for this wait

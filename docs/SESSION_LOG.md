@@ -482,3 +482,20 @@ and the `expect` step is what makes that distinction visible instead of a myster
 ADRs 1-13. Phase 1 complete; Phase 2 largely delivered (recorder, control panel,
 tuning editor). Remaining: visual element picker, recipe gallery, code signing,
 recorder tested on more than one real site.
+
+**Speed pass (end of Session 6): appear->click 73.9ms -> ~24ms (3.1x), no reliability
+traded away.** Two changes, both measured:
+1. `wait_for` was running the FULL click-safety check (stability + hit test) on every
+   poll. Detection does not need those — only the click does. Added a `detectOnly`
+   mode for polling. 73.9 -> 40.8ms.
+2. Click-path stability reduced from two animation frames to one. 40.8 -> 23.8ms.
+   Validated rather than assumed: a slow 0.8px/frame drift (near the 0.5px threshold)
+   is still correctly REFUSED, so the guarantee held is "never click a stale or
+   occluded position" — the resolver waits instead of guessing. Locked in by
+   `test_slow_drift_is_refused_not_misclicked`.
+The remaining ~24ms is one display frame plus CDP round-trips; below that we would be
+clicking positions we have not confirmed are still valid.
+Two self-inflicted detours worth noting: the first slow-drift test resolved before the
+CSS animation had started moving (so the element genuinely WAS stationary — invalid
+test), and the second failed on a `NameError` I misread as a logic failure for two
+rounds. Read the actual error before theorising.
