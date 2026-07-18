@@ -74,6 +74,40 @@ Start with **`recipes/demo/selftest.json`** — it's self-contained (no website,
 login) and turns a button green when Truklick lands a real trusted click on it. If
 that works, your install works.
 
+## Make a recipe without writing one
+
+**Demonstrate it once:**
+
+```bash
+truklick record my-task.json --url https://example.com
+```
+
+A browser opens; you do the task by hand; press `Ctrl+C`. You get a runnable recipe.
+
+It isn't a macro recorder. Because Truklick watches the page, every click you make
+becomes a **`wait_for` + `click` pair** — so the recipe waits for things to appear
+instead of replaying blind timings. Targets are captured by visible text and ARIA
+role, and framework-generated ids (React/Radix `«r3»`-style) are refused outright
+because they change on every render.
+
+Then **tune it** in the control panel: press **Tune** to adjust every delay, timeout
+and poll interval per step, or delete steps. Edits are validated before saving, so a
+bad edit can never overwrite a working recipe.
+
+## Know whether it actually worked
+
+Every automation tool tells you it clicked. Truklick tells you whether the **outcome
+happened**:
+
+```json
+{ "action": "expect", "target": { "role": "button", "name": "Accept" },
+  "present": false, "name": "order went through" }
+```
+
+On exit you get a real success rate — `outcomes verified: 47/50 succeeded (94%)` —
+instead of guessing from a log of clicks. Recorded recipes get an `expect` step
+automatically.
+
 ## Writing a recipe
 
 A recipe is JSON. Targets are found by **visible text, ARIA role, or CSS selector** —

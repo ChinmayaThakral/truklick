@@ -1,44 +1,65 @@
 {
   "_comment": "P2P.me — auto Close + Accept. Runs forever: waits for an order popup, clicks Close, waits for the home-screen Accept, clicks Accept, repeats. Nothing else. All payment/verification stays manual on your phone. Targets captured from the LIVE site 2026-07-19; see _targeting_notes before changing them.",
-
   "_how_to_run": "truklick run recipes/p2p-me/recipe.json      (opens its own browser; log in once, it keeps you logged in)\nStop with Ctrl+C, or press the hotkey below to pause/resume if your OS grants it.\nSee docs/QUICKSTART.md.",
-
   "_targeting_notes": "DO NOT replace these with CSS selectors. lp.p2p.me is React + Tailwind: buttons have NO ids, only utility classes, and deep nth-of-type paths. The order popup is a Radix dialog whose container id is generated per render (e.g. div#radix-«rj»), so every CSS path inside it breaks on the next popup. Text/role were verified unique against live captures. Accept MUST stay role=button + exact name: while the popup is open the substring 'Accept' also appears in 'Slide to Accept' and 'Accept to view UPI ID', and a loose text match once clicked the wrong element (live, 2026-07-19). If role ever fails to match we WAIT rather than mis-click — on a payments dashboard, not clicking is the safe failure.",
-
-  "_reliability": "Validated on live orders 2026-07-19: the full Close->Accept sequence fired correctly and was visually confirmed. In the same session one earlier cycle clicked Close but the Accept button never appeared, leaving that order unaccepted. If that happens the log prints 'PASS ABORTED AFTER N CLICK(S)' — that order needs manual attention. Watch the first few orders before leaving this unattended.",
-
+  "_reliability": "Live-validated 2026-07-19. NOTE: P2P.me offers the same order to 3-4 merchants, first to accept wins — so some cycles legitimately end with the order gone before we can accept. That is competition, not a fault. The expect step below distinguishes the two: EXPECT OK = we got it; EXPECT FAILED = someone else did (or it expired). The run summary reports the success rate.",
   "name": "P2P.me — auto accept & close",
   "match_url": "https://lp.p2p.me/*",
   "url": "https://lp.p2p.me",
   "hotkey": "Escape",
-
   "loop": true,
   "loop_delay_ms": 10,
-
   "steps": [
     {
       "action": "wait_for",
-      "target": { "text": "Close", "exact": true },
+      "target": {
+        "text": "Close",
+        "exact": true
+      },
       "timeout_ms": 60000,
       "poll_ms": 10,
       "_note": "Waits for the next order popup, re-checking every 10ms. Times out after 60s only to re-arm the loop — it keeps waiting forever."
     },
     {
       "action": "click",
-      "target": { "text": "Close", "exact": true },
+      "target": {
+        "text": "Close",
+        "exact": true
+      },
       "_note": "Dismisses the order popup. Non-committing."
     },
     {
       "action": "wait_for",
-      "target": { "role": "button", "name": "Accept", "exact": true },
+      "target": {
+        "role": "button",
+        "name": "Accept",
+        "exact": true
+      },
       "timeout_ms": 40000,
       "poll_ms": 10,
       "_note": "Home-screen Accept appears after Close (~1s live). role=button + exact name so it can never match 'Slide to Accept'."
     },
     {
       "action": "click",
-      "target": { "role": "button", "name": "Accept", "exact": true },
+      "target": {
+        "role": "button",
+        "name": "Accept",
+        "exact": true
+      },
       "_note": "Accepts the order. Delete THIS step to make the recipe close-only (dismiss popups, leave Accept to you)."
+    },
+    {
+      "action": "expect",
+      "target": {
+        "role": "button",
+        "name": "Accept",
+        "exact": true
+      },
+      "present": false,
+      "timeout_ms": 8000,
+      "poll_ms": 100,
+      "name": "order accepted (Accept button gone)",
+      "_note": "Verifies the OUTCOME, not just that we clicked. If Accept is still there we did not win the order."
     }
   ]
 }

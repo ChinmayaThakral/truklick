@@ -117,6 +117,15 @@ button{padding:10px 20px;border:0;border-radius:8px;font-weight:600;cursor:point
 button:disabled{opacity:.4;cursor:not-allowed}
 #dot{width:10px;height:10px;border-radius:50%;background:#6e7681;display:inline-block}
 #dot.on{background:#3fb950;box-shadow:0 0 10px #3fb950}
+.step{display:flex;gap:10px;align-items:center;background:#161b22;border:1px solid #30363d;
+ border-radius:8px;padding:9px 12px;margin-bottom:7px;flex-wrap:wrap}
+.step b{font-size:13px;color:#79c0ff;min-width:74px}
+.step .t{flex:1;min-width:150px;color:#8b949e;font-size:12.5px;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step label{font-size:11.5px;color:#8b949e}
+.step input{width:74px;padding:5px 7px;border-radius:6px;background:#0d1117;
+ color:#e6edf3;border:1px solid #30363d;font-size:12.5px}
+.step .del{background:#30363d;color:#e6edf3;padding:5px 10px;font-size:12px}
 pre{background:#010409;border:1px solid #21262d;border-radius:10px;padding:14px;
  height:52vh;overflow:auto;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
  white-space:pre-wrap;word-break:break-word}
@@ -129,6 +138,12 @@ pre{background:#010409;border:1px solid #21262d;border-radius:10px;padding:14px;
    <select id=recipe></select>
    <button id=go>Start</button>
    <button id=halt disabled>Stop</button>
+   <button id=edit style="background:#30363d;color:#e6edf3">Tune</button>
+ </div>
+ <div id=editor style="display:none;margin-bottom:18px">
+   <div id=steps></div>
+   <button id=save style="background:#1f6feb;color:#fff;margin-top:10px">Save</button>
+   <span id=saved class=hint></span>
  </div>
  <pre id=log>Pick a recipe and press Start.</pre>
  <div class=hint>A browser window will open. Log in once if the site needs it —
@@ -143,6 +158,35 @@ async function refresh(){
   if(r.log.length){const el=$('#log');const bottom=el.scrollTop+el.clientHeight>=el.scrollHeight-40;
     el.textContent=r.log.join('\\n'); if(bottom)el.scrollTop=el.scrollHeight;}
 }
+let RECIPE=null, RPATH=null;
+const FIELDS=[['ms','delay ms'],['timeout_ms','timeout ms'],['poll_ms','poll ms']];
+function drawSteps(){
+  $('#steps').innerHTML = RECIPE.steps.map((s,i)=>{
+    const t=s.target?JSON.stringify(s.target):(s.text||'');
+    const inputs=FIELDS.filter(([k])=>s[k]!==undefined).map(([k,lab])=>
+      `<label>${lab}</label><input data-i="${i}" data-k="${k}" value="${s[k]}">`).join(' ');
+    return `<div class=step><b>${s.action}</b><span class=t title='${t}'>${t}</span>
+      ${inputs}<button class=del data-del="${i}">remove</button></div>`;}).join('')
+    || '<div class=hint>no steps</div>';
+  $('#steps').querySelectorAll('input').forEach(el=>el.onchange=e=>{
+    const v=parseInt(e.target.value,10);
+    if(!isNaN(v)) RECIPE.steps[e.target.dataset.i][e.target.dataset.k]=v;});
+  $('#steps').querySelectorAll('[data-del]').forEach(el=>el.onclick=e=>{
+    RECIPE.steps.splice(+e.target.dataset.del,1); drawSteps();});
+}
+$('#edit').onclick=async()=>{
+  const box=$('#editor');
+  if(box.style.display==='block'){box.style.display='none';return;}
+  RPATH=$('#recipe').value;
+  RECIPE=await fetch('/api/recipe?path='+encodeURIComponent(RPATH)).then(r=>r.json());
+  drawSteps(); box.style.display='block';
+};
+$('#save').onclick=async()=>{
+  const r=await fetch('/api/save',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({path:RPATH,recipe:RECIPE})}).then(r=>r.json());
+  $('#saved').textContent = r.ok ? 'saved' : ('not saved: '+r.msg);
+  setTimeout(()=>$('#saved').textContent='',4000);
+};
 $('#go').onclick=async()=>{await fetch('/api/start',{method:'POST',
   headers:{'content-type':'application/json'},body:JSON.stringify({recipe:$('#recipe').value})});refresh();};
 $('#halt').onclick=async()=>{await fetch('/api/stop',{method:'POST'});refresh();};
@@ -164,7 +208,19 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _resolve(self, rel):
+        from urllib.parse import unquote
+        rel = unquote(rel)
+        p = Path(rel)
+        return p if p.exists() else (_base_dir() / rel)
+
     def do_GET(self):
+        if self.path.startswith("/api/recipe?"):
+            rel = self.path.split("?path=", 1)[1]
+            try:
+                return self._send(200, self._resolve(rel).read_text(encoding="utf-8"))
+            except Exception as exc:
+                return self._send(400, json.dumps({"error": str(exc)}))
         if self.path == "/":
             return self._send(200, PAGE, "text/html; charset=utf-8")
         if self.path == "/api/status":
@@ -179,6 +235,27 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b"{}")
             ok, msg = start(body.get("recipe", ""))
             return self._send(200 if ok else 400, json.dumps({"ok": ok, "msg": msg}))
+        if self.path == "/api/save":
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(n) or b"{}")
+            tmp = None
+            try:
+                # validate before overwriting — never save a recipe that won't load
+                from .recipe import load_recipe
+                target = self._resolve(body["path"])
+                tmp = target.with_suffix(".tmp.json")
+                tmp.write_text(json.dumps(body["recipe"], indent=2,
+                                          ensure_ascii=False) + "\n", encoding="utf-8")
+                load_recipe(tmp)          # raises if invalid
+                tmp.replace(target)
+                return self._send(200, json.dumps({"ok": True}))
+            except Exception as exc:
+                if tmp is not None:
+                    try:
+                        tmp.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                return self._send(400, json.dumps({"ok": False, "msg": str(exc)}))
         if self.path == "/api/stop":
             ok, msg = stop()
             return self._send(200, json.dumps({"ok": ok, "msg": msg}))

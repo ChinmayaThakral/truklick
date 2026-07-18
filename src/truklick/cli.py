@@ -59,6 +59,17 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Enable human-like motion (easing+jitter). Refinement.")
     run.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
 
+    rec = sub.add_parser("record", help="Demonstrate a task once; get a recipe")
+    rec.add_argument("output", type=Path, help="Where to write the recipe .json")
+    rec.add_argument("--url", required=True, help="Page to start recording on")
+    rec.add_argument("--name", default=None, help="Recipe name")
+    rec.add_argument("--profile-dir", type=Path, default=Path("./truklick_profile"))
+    rec.add_argument("--attach", metavar="CDP_URL", default=None,
+                     help="Record in a browser you already have open")
+    rec.add_argument("--no-loop", action="store_true",
+                     help="Recipe runs once instead of looping")
+    rec.add_argument("-v", "--verbose", action="store_true")
+
     g = sub.add_parser("gui", help="Open the control panel (no terminal needed)")
     g.add_argument("--port", type=int, default=8765)
     g.add_argument("--no-open", action="store_true", help="Don't open a browser")
@@ -126,6 +137,45 @@ async def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _record(args: argparse.Namespace) -> int:
+    from .recorder import Recorder
+
+    bm = BrowserManager(BrowserConfig(profile_dir=args.profile_dir,
+                                      cdp_url=args.attach))
+    await bm.start()
+    try:
+        page = await bm.ensure_page()
+        if not bm.is_attached:
+            await page.goto(args.url, wait_until="domcontentloaded")
+        rec = Recorder(page)
+        await rec.start()
+        print("\n" + "=" * 60)
+        print("  RECORDING — do the task in the browser window.")
+        print("  Every click is captured. Press Ctrl+C here when you're done.")
+        print("=" * 60 + "\n", flush=True)
+        stop = asyncio.Event()
+        try:
+            await stop.wait()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            pass
+        return _finish_record(rec, args, page.url)
+    finally:
+        await bm.stop()
+
+
+def _finish_record(rec, args: argparse.Namespace, page_url: str) -> int:
+    if not rec.hits:
+        log.warning("Nothing recorded — no clicks were captured.")
+        return 1
+    name = args.name or f"Recorded on {page_url.split('//')[-1].split('/')[0]}"
+    out = rec.save(args.output, name, args.url, loop=not args.no_loop)
+    log.info("Saved %d action(s) -> %s", len(rec.hits), out)
+    print(f"\n  Recipe written to {out}")
+    print("  Run it:   truklick run " + str(out))
+    print("  Tune it:  truklick   (control panel -> Edit)\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     from .bootstrap import configure_frozen_env
     configure_frozen_env()   # must run before Playwright resolves browsers
@@ -140,6 +190,15 @@ def main(argv: list[str] | None = None) -> int:
         ensure_chromium()
         from .gui import serve
         return serve(port=args.port, open_browser=not args.no_open)
+    if args.command == "record":
+        if not args.attach:
+            from .bootstrap import ensure_chromium
+            ensure_chromium()
+        try:
+            return asyncio.run(_record(args))
+        except KeyboardInterrupt:
+            return 0
+
     if args.command == "run":
         if not args.attach:
             from .bootstrap import ensure_chromium

@@ -69,6 +69,9 @@ class RecipeRunner:
         self.page: Optional[Page] = None
         self.input: Optional[Input] = None
         self._clicks_this_pass = 0          # for half-done-pass detection
+        self._expect_pass = 0               # verified outcomes
+        self._expect_fail = 0
+        self._passes = 0
         self._active = asyncio.Event()      # set = executing steps
         self._shutdown = asyncio.Event()    # set = tear down and exit
 
@@ -172,16 +175,41 @@ class RecipeRunner:
         except asyncio.CancelledError:
             raise
         finally:
-            log.info("Runner stopping.")
+            log.info("Runner stopping. %s", self.outcome_summary())
 
     async def _wait_active(self) -> None:
         """Block until active or shutdown."""
         while not self._active.is_set() and not self._shutdown.is_set():
             await asyncio.sleep(0.05)
 
+    async def _await_condition(self, target: dict, present: bool,
+                               timeout_ms: int, poll_ms: int) -> bool:
+        """Poll until the target is present (or absent). Responsive to pause/stop."""
+        import time
+        deadline = time.monotonic() + timeout_ms / 1000
+        while True:
+            if not self._live():
+                return False
+            hit = await targeting.find(self.page, target)
+            if (hit is not None) == present:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            await asyncio.sleep(max(poll_ms, 25) / 1000)
+
+    def outcome_summary(self) -> str:
+        total = self._expect_pass + self._expect_fail
+        if total == 0:
+            return f"{self._passes} pass(es) run; no expect steps in this recipe."
+        rate = 100.0 * self._expect_pass / total
+        return (f"{self._passes} pass(es) run — outcomes verified: "
+                f"{self._expect_pass}/{total} succeeded ({rate:.0f}%), "
+                f"{self._expect_fail} failed.")
+
     async def _run_pass(self) -> None:
         """Execute the recipe's top-level steps once."""
         self._clicks_this_pass = 0
+        self._passes += 1
         ok = await self._exec_steps(self.recipe.steps)
         if not ok and self._clicks_this_pass > 0 and not self._shutdown.is_set():
             # Half-done pass: we already changed the page, then a later step failed.
@@ -216,6 +244,25 @@ class RecipeRunner:
                     await asyncio.sleep(dt)
                     remaining -= dt
                 return True
+
+            if action == "expect":
+                # "Did it actually work?" — verify an OUTCOME, not just that we
+                # clicked. present=false is usually the useful one: the thing you
+                # acted on should now be GONE.
+                present = bool(step.raw.get("present", True))
+                label = step.raw.get("name") or (
+                    f"{step.target} {'present' if present else 'gone'}")
+                ok = await self._await_condition(
+                    step.target, present, step.timeout_ms, step.poll_ms)
+                if ok:
+                    self._expect_pass += 1
+                    log.info("EXPECT OK — %s", label)
+                    return True
+                self._expect_fail += 1
+                log.warning("EXPECT FAILED — %s (waited %dms). The clicks may have "
+                            "landed but the outcome did not happen.",
+                            label, step.timeout_ms)
+                return False
 
             if action == "wait_for":
                 hit = await targeting.wait_for(

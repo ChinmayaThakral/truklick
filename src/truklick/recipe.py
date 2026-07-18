@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-VALID_ACTIONS = {"wait_for", "click", "swipe", "type", "wait", "loop", "condition"}
+VALID_ACTIONS = {"wait_for", "click", "swipe", "type", "wait", "loop", "condition",
+                 "expect"}
 
 
 def _strip_comments(obj: Any) -> Any:
@@ -98,7 +99,7 @@ def _validate_step(idx: int, step: dict) -> None:
         raise RecipeError(
             f"step[{idx}]: unknown action {action!r}. Valid: {sorted(VALID_ACTIONS)}"
         )
-    if action in {"wait_for", "click"} and not step.get("target"):
+    if action in {"wait_for", "click", "expect"} and not step.get("target"):
         raise RecipeError(f"step[{idx}]: '{action}' requires a 'target'")
     if action == "wait" and "ms" not in step:
         raise RecipeError(f"step[{idx}]: 'wait' requires 'ms'")
