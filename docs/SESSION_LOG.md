@@ -576,3 +576,14 @@ message, which blamed "offline?" for what was actually a certificate failure —
 misdiagnosing the cause in the one message the user would ever see.
 Lesson, repeated for the third time tonight: **test the artifact you ship, not the
 code you wrote.** The same discipline caught the frozen-Chromium-path bug earlier.
+
+**Pre-signoff audit (2026-07-19).** Checked the repo against reality before closing
+out. Everything green except documentation drift, now fixed:
+- README never mentioned update checking at all — the feature shipped undocumented.
+- CLAUDE.md and FEATURE_SCANNER still cited v0.1.1 as current (actual: v0.1.5).
+- ROADMAP Phase 3 still listed distribution packaging and installers as TODO, though
+  CI has been publishing single-file binaries for all three OSes since v0.1.0.
+  Ticked, and **code signing / notarization is now called out as the main remaining
+  distribution gap** — downloads show an unsigned warning.
+State at signoff: working tree clean, in sync, 45 tests green, FACTS 1-7, ADRs 1-14,
+releases v0.1.0 through v0.1.5, nothing running, no sensitive data on disk.

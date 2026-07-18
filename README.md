@@ -108,6 +108,17 @@ On exit you get a real success rate — `outcomes verified: 47/50 succeeded (94%
 instead of guessing from a log of clicks. Recorded recipes get an `expect` step
 automatically.
 
+## Staying current
+
+```bash
+truklick update          # is there a newer release?
+```
+
+It also tells you quietly at startup, and the control panel shows a banner. It
+**checks** — it never silently replaces itself. Downloads are unsigned, and a tool
+that drives your logged-in sessions should not auto-execute code fetched in the
+background (see ADR-014). You decide when to download.
+
 ## Writing a recipe
 
 A recipe is JSON. Targets are found by **visible text, ARIA role, or CSS selector** —
@@ -153,7 +164,8 @@ Decisions and their evidence: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 - ✅ **Engine** — trusted clicking, resilient targeting, recipes, hotkey, control panel
 - ✅ **Proven** — trusted input, background/minimized operation, and a full
   recipe driving a real production site end to end (`PROVEN_FACTS` 1–6)
-- 🚧 **Now** — one-file downloads for all three OSes, visual element picker
+- ✅ **Distribution** — one-file downloads for Windows, macOS and Linux, built in CI
+- 🚧 **Now** — visual element picker, code signing / notarization
 - ⏳ **Next** — recipe gallery, richer editor
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md).

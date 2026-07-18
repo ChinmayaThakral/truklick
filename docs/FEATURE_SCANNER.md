@@ -1,6 +1,6 @@
 # FEATURE SPEC — Objective DOM Scanner / Capture ("Capture Mode")
 
-> **STATUS (2026-07-19, v0.1.1): NOT IMPLEMENTED AS SPEC'D — partly superseded.**
+> **STATUS (2026-07-19, v0.1.5): NOT IMPLEMENTED AS SPEC'D — partly superseded.**
 > The non-coder gap this was meant to close is now largely closed by the **recorder**
 > (`truklick record`, ADR-012), which captures targets while you demonstrate the task
 > instead of dumping the whole page. What remains genuinely useful from this spec is

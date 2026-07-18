@@ -75,7 +75,7 @@ real mouse, but targets the page directly so it works backgrounded/headless and 
 no virtual display.** Packaging this for non-coders, as a recipe platform, is the
 unoccupied gap this project fills. (See `docs/RESEARCH.md` and `docs/INNOVATION.md`.)
 
-## 4. WHERE THE PROJECT ACTUALLY IS (updated 2026-07-19, v0.1.1)
+## 4. WHERE THE PROJECT ACTUALLY IS (updated 2026-07-19, v0.1.5)
 
 Phase 1 is **done** and Phase 2 is largely delivered. Shipped: the engine (trusted
 CDP input, resilient targeting, recipes, hotkey), a local **control panel GUI**, a
@@ -83,8 +83,12 @@ CDP input, resilient targeting, recipes, hotkey), a local **control panel GUI**,
 verification (ADR-013), `--attach` (ADR-009), and one-file downloads for all three
 OSes (ADR-011). 25 tests green. FACTS 1-6 proven.
 
-**Still open:** minimized run on the *live* site specifically; a visual element
-picker; recipe gallery; code signing. See ROADMAP.
+Since then: **FACT 7** (trusted click on the live site while MINIMIZED — Phase 1 is
+COMPLETE), ~6ms appear-to-click (12x faster), and update checking (ADR-014).
+Released through **v0.1.5**.
+
+**Still open:** visual element picker; recipe gallery; code signing/notarization;
+the recorder has only met one real site. See ROADMAP.
 
 The original milestone text is kept below for historical context.
 

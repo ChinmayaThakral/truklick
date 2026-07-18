@@ -58,9 +58,12 @@ Goal: someone who can't code can create and run a recipe.
       signature (see PROVEN_FACTS caveat).
 
 ## PHASE 3 — DISTRIBUTION & COMMUNITY
-- [ ] Decide/execute distribution packaging: consider Go(chromedp)/Rust core for a
-      single downloadable binary (revisit ADR-005). Bundle/auto-download Chromium.
-- [ ] Windows + Linux installers; macOS support (permissions, notarization, signing).
+- [x] Distribution packaging — PyInstaller single-file binaries built in CI for all
+      three OSes (ADR-011); no Go/Rust rewrite needed. Chromium auto-downloads on
+      first run rather than being bundled.
+- [x] Update checking (ADR-014) — checks only, never silent self-update.
+- [ ] Windows/macOS **code signing + notarization** (downloads currently show an
+      unsigned warning — this is now the main distribution gap).
 - [ ] **Recipe gallery** (Espanso-style): shareable recipe files + a simple index.
 - [ ] Docs site, contribution guide, examples beyond P2P.me to prove generality.
 - [ ] Launch narrative (see INNOVATION.md).
