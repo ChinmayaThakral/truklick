@@ -57,6 +57,11 @@ class Step:
         return int(self.raw.get("ms", 0))
 
     @property
+    def poll_ms(self) -> int:
+        """How often wait_for re-checks the DOM. Lower = faster reaction, more CPU."""
+        return int(self.raw.get("poll_ms", 250))
+
+    @property
     def text(self) -> str:
         return str(self.raw.get("text", ""))
 

@@ -172,6 +172,7 @@ class RecipeRunner:
             if action == "wait_for":
                 hit = await targeting.wait_for(
                     self.page, step.target, step.timeout_ms,
+                    poll_ms=step.poll_ms,
                     should_continue=self._live,
                 )
                 if hit is None:

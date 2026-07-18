@@ -53,6 +53,10 @@ class BrowserConfig:
     # over CDP instead of launching one. Used to drive a session the user is already
     # logged into. In this mode we never close their browser on stop().
     cdp_url: Optional[str] = None
+    # Real OS window size. Playwright otherwise emulates a fixed 1280x720 viewport,
+    # which makes the window look cramped. Purely cosmetic — targeting is
+    # resolution-independent (FACT 4).
+    window_size: tuple[int, int] = (1440, 900)
 
 
 class BrowserManager:
@@ -95,11 +99,15 @@ class BrowserManager:
         log.debug("Anti-throttle flags: %s", " ".join(args))
 
         self._pw = await async_playwright().start()
+        w, h = self.config.window_size
         launch_kwargs = dict(
             user_data_dir=str(self.config.profile_dir),
             headless=self.config.headless,
-            args=args,
+            args=args + ([f"--window-size={w},{h}"] if not self.config.headless else []),
         )
+        if not self.config.headless:
+            # use the real window instead of an emulated 1280x720 viewport
+            launch_kwargs["no_viewport"] = True
         if self.config.channel:
             launch_kwargs["channel"] = self.config.channel
         self._context = await self._pw.chromium.launch_persistent_context(**launch_kwargs)

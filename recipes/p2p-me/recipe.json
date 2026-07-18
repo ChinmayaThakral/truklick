@@ -1,51 +1,44 @@
 {
-  "_comment": "FIRST REAL RECIPE (user content, ADR-006). Targets captured from the LIVE lp.p2p.me site on 2026-07-19 (order 625945) via scripts/capture_now.py. Flow: order popup shows Close -> click Close -> the order maps to the HOME screen as a clean Accept button -> click Accept. The script does ONLY these two clicks; all payment/verification is manual on the phone.",
-  "_workflow": "Author's real loop: the phone rings 3x per order (1 assigned / 2 accepted / 3 action-needed). The script auto-Closes + auto-Accepts fast and non-stop. On the 3rd ring the author TOGGLES THE SCRIPT OFF (hotkey), handles that one order on the phone (~6-7 min: verify a buy where money arrived, or send money for a sell), then TOGGLES BACK ON. The toggle-pause is what keeps the script from accepting more orders than can be worked one at a time.",
-  "_targeting_notes": "WHY TEXT/ROLE AND NOT CSS SELECTORS (learned from the capture, do not 'improve' this): lp.p2p.me is React + Tailwind. Buttons have NO ids, only utility classes, and deep nth-of-type paths. Worse, the order popup is a Radix dialog whose container id is generated per-render (e.g. div#radix-«rj») — every CSS path inside the popup is anchored to it and WILL break on the next popup. So CSS fallbacks are deliberately omitted: a stale selector that matches the WRONG control on a financial dashboard is more dangerous than no fallback. Text/role were verified UNIQUE in the captures.",
-  "_uniqueness_verified": "With the popup open, exactly 2 elements contain 'Close' and both are the same button (div wrapper + its <p> label) — unambiguous. On the home screen after closing, exactly 1 element contains 'Accept' and it is a real <button>. NOTE: while the popup is open, 'Accept' as SUBSTRING also appears in 'Slide to Accept' and 'Accept to view UPI ID' — which is why the Accept target uses role=button + exact name, so it can never match those non-button texts.",
-  "_live_run_2026_07_19": "FIRST live run: Close clicked correctly (confirmed visually), Accept did NOT take effect. Evidence: the role strategy found 0 matches (so the real home <button>Accept</button> did not exist yet — the popup was still dismissing), and the Accept target ALSO carried a loose 'text' fallback, which matched something inside the still-open popup and clicked it at (668,597) — 55px ABOVE the Close click at (640,652), i.e. still in the popup region. FIX: the Accept target now requires role=button ONLY, with NO text fallback, so wait_for keeps polling until a genuine button exists instead of clicking a wrong element. Trade-off accepted: if role ever fails to match, we WAIT (order not auto-accepted) rather than mis-click — on a financial dashboard, not-clicking is the safe failure.",
+  "_comment": "P2P.me — auto Close + Accept. Runs forever: waits for an order popup, clicks Close, waits for the home-screen Accept, clicks Accept, repeats. Nothing else. All payment/verification stays manual on your phone. Targets captured from the LIVE site 2026-07-19; see _targeting_notes before changing them.",
+
+  "_how_to_run": "truklick run recipes/p2p-me/recipe.json      (opens its own browser; log in once, it keeps you logged in)\nStop with Ctrl+C, or press the hotkey below to pause/resume if your OS grants it.\nSee docs/QUICKSTART.md.",
+
+  "_targeting_notes": "DO NOT replace these with CSS selectors. lp.p2p.me is React + Tailwind: buttons have NO ids, only utility classes, and deep nth-of-type paths. The order popup is a Radix dialog whose container id is generated per render (e.g. div#radix-«rj»), so every CSS path inside it breaks on the next popup. Text/role were verified unique against live captures. Accept MUST stay role=button + exact name: while the popup is open the substring 'Accept' also appears in 'Slide to Accept' and 'Accept to view UPI ID', and a loose text match once clicked the wrong element (live, 2026-07-19). If role ever fails to match we WAIT rather than mis-click — on a payments dashboard, not clicking is the safe failure.",
+
+  "_reliability": "Validated on live orders 2026-07-19: the full Close->Accept sequence fired correctly and was visually confirmed. In the same session one earlier cycle clicked Close but the Accept button never appeared, leaving that order unaccepted. If that happens the log prints 'PASS ABORTED AFTER N CLICK(S)' — that order needs manual attention. Watch the first few orders before leaving this unattended.",
+
   "name": "P2P.me — auto accept & close",
   "match_url": "https://lp.p2p.me/*",
   "url": "https://lp.p2p.me",
   "hotkey": "Escape",
+
   "loop": true,
-  "loop_delay_ms": 100,
+  "loop_delay_ms": 10,
+
   "steps": [
     {
       "action": "wait_for",
-      "target": {
-        "text": "Close",
-        "exact": true
-      },
+      "target": { "text": "Close", "exact": true },
       "timeout_ms": 60000,
-      "_note": "Waits for the next order popup (Radix dialog). Pausing here via the hotkey is the clean toggle-off point."
+      "poll_ms": 10,
+      "_note": "Waits for the next order popup, re-checking every 10ms. Times out after 60s only to re-arm the loop — it keeps waiting forever."
     },
     {
       "action": "click",
-      "target": {
-        "text": "Close",
-        "exact": true
-      },
-      "_note": "Dismisses the popup. Non-committing. Captured rect was 400x48 at (440,640); we target by text, never coords."
+      "target": { "text": "Close", "exact": true },
+      "_note": "Dismisses the order popup. Non-committing."
     },
     {
       "action": "wait_for",
-      "target": {
-        "role": "button",
-        "name": "Accept",
-        "exact": true
-      },
+      "target": { "role": "button", "name": "Accept", "exact": true },
       "timeout_ms": 40000,
-      "_note": "Wait for the home-screen Accept. On the good live cycle it appeared in ~1s; on a failed cycle it never appeared at all. Longer timeout so a slow render is not mistaken for absence. If it still times out the runner logs PASS ABORTED AFTER N CLICK(S) — that means the popup was closed and the order left UNACCEPTED, so check it manually."
+      "poll_ms": 10,
+      "_note": "Home-screen Accept appears after Close (~1s live). role=button + exact name so it can never match 'Slide to Accept'."
     },
     {
       "action": "click",
-      "target": {
-        "role": "button",
-        "name": "Accept",
-        "exact": true
-      },
-      "_note": "THIS is the auto-accept step — delete it to revert to close-only (script would then just dismiss popups and leave Accept for you to tap)."
+      "target": { "role": "button", "name": "Accept", "exact": true },
+      "_note": "Accepts the order. Delete THIS step to make the recipe close-only (dismiss popups, leave Accept to you)."
     }
   ]
 }
