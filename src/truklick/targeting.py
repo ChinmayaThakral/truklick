@@ -103,6 +103,118 @@ async def find(page: Page, target: dict, require_visible: bool = True) -> Option
     return None
 
 
+# ---------------------------------------------------------------------------
+# FAST PATH
+# ---------------------------------------------------------------------------
+# The general path below costs several CDP round-trips per strategy per frame
+# (count -> is_visible -> bounding_box), plus a wall-clock settle between two box
+# reads. That is fine for correctness but it is pure device-side latency.
+#
+# This resolver does the whole job in ONE round-trip, inside the page: find the
+# element, confirm it is not still animating (two animation frames), confirm
+# elementFromPoint actually hits it, and return the click point. Typical cost is
+# one evaluate (~2-5ms) instead of ~10 round-trips + a 120ms settle.
+#
+# It deliberately supports only the unambiguous target shapes (exact text,
+# role=button/link + exact name, css selector). Anything else falls back to the
+# general path, so we never trade correctness for speed.
+_FAST_JS = r"""
+async ([spec]) => {
+  const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+
+  function visible(el) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    const s = getComputedStyle(el);
+    return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) !== 0;
+  }
+  function pick() {
+    if (spec.selector) {
+      const el = document.querySelector(spec.selector);
+      return el && visible(el) ? el : null;
+    }
+    if (spec.role) {
+      const sel = spec.role === 'button' ? 'button,[role="button"]'
+                : spec.role === 'link'   ? 'a,[role="link"]'
+                : '[role="' + spec.role + '"]';
+      for (const el of document.querySelectorAll(sel)) {
+        if (!visible(el)) continue;
+        const name = norm(el.getAttribute('aria-label') || el.innerText || el.textContent);
+        if (spec.name == null) return el;
+        if (spec.exact ? name === spec.name : name.includes(spec.name)) return el;
+      }
+      return null;
+    }
+    if (spec.text != null) {
+      // deepest element whose own text matches, so we land on the label not a wrapper
+      let best = null;
+      for (const el of document.querySelectorAll('*')) {
+        if (!visible(el)) continue;
+        const t = norm(el.innerText || el.textContent);
+        const hit = spec.exact ? t === spec.text : t.includes(spec.text);
+        if (!hit) continue;
+        if (!best || best.contains(el)) best = el;
+      }
+      return best;
+    }
+    return null;
+  }
+
+  let el = pick();
+  if (!el) return null;
+
+  // stability: same box across two animation frames (catches slide-in dialogs)
+  let a = el.getBoundingClientRect();
+  await raf(); await raf();
+  el = pick();
+  if (!el) return null;
+  let b = el.getBoundingClientRect();
+  const moved = Math.abs(a.x - b.x) > 0.5 || Math.abs(a.y - b.y) > 0.5 ||
+                Math.abs(a.width - b.width) > 0.5 || Math.abs(a.height - b.height) > 0.5;
+  if (moved) return {moving: true};
+
+  const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+  const at = document.elementFromPoint(cx, cy);
+  if (!at || !(at === el || el.contains(at) || at.contains(el))) return {occluded: true};
+
+  return {x: b.x, y: b.y, width: b.width, height: b.height, cx, cy};
+}
+"""
+
+
+def _fast_spec(target: dict) -> Optional[dict]:
+    """Return a JS spec if this target shape is safe to resolve on the fast path."""
+    if target.get("fallback_selector"):
+        return None  # multi-strategy fallbacks stay on the general path
+    if target.get("selector"):
+        return {"selector": target["selector"]}
+    if target.get("role"):
+        return {"role": target["role"], "name": target.get("name"),
+                "exact": bool(target.get("exact"))}
+    if target.get("text") is not None:
+        return {"text": target["text"], "exact": bool(target.get("exact"))}
+    return None
+
+
+async def fast_click_point(page: Page, target: dict) -> Optional[Hit]:
+    """One-round-trip resolve + stability + occlusion check. None if unsupported,
+    absent, still moving, or occluded — caller falls back to the general path."""
+    spec = _fast_spec(target)
+    if spec is None:
+        return None
+    try:
+        res = await page.evaluate(_FAST_JS, [spec])
+    except Exception as exc:
+        log.debug("fast path failed (%s), falling back", exc)
+        return None
+    if not res or res.get("moving") or res.get("occluded"):
+        return None
+    return Hit(cx=res["cx"], cy=res["cy"], x=res["x"], y=res["y"],
+               width=res["width"], height=res["height"],
+               strategy="fast", where="main frame")
+
+
 async def _iter_candidates(page: Page, target: dict):
     """Yield (strategy, where, locator) for each strategy in each frame."""
     for frame in _frames(page):
@@ -125,6 +237,11 @@ async def find_click_point(page: Page, target: dict, settle_ms: int = 120,
     Returns None if it can't be made safe within `attempts`.
     """
     import asyncio
+
+    # Fast path first: one round-trip, in-page stability + occlusion check.
+    fast = await fast_click_point(page, target)
+    if fast is not None:
+        return fast
 
     for _ in range(attempts):
         found = None
@@ -190,9 +307,33 @@ async def wait_for(page: Page, target: dict, timeout_ms: int = 30000,
 
     deadline = time.monotonic() + timeout_ms / 1000
     attempt = 0
+    spec = _fast_spec(target)
     while True:
         if should_continue is not None and not should_continue():
             return None
+        # one round-trip probe when the target shape allows it
+        if spec is not None:
+            try:
+                res = await page.evaluate(_FAST_JS, [spec])
+            except Exception:
+                res = None
+                spec = None  # fall back permanently for this wait
+            if res:
+                if res.get("moving") or res.get("occluded"):
+                    await asyncio.sleep(poll_ms / 1000)
+                    continue
+                return Hit(cx=res["cx"], cy=res["cy"], x=res["x"], y=res["y"],
+                           width=res["width"], height=res["height"],
+                           strategy="fast", where="main frame")
+            if spec is not None:
+                # not found on the fast path; only pay for the slow search
+                # occasionally, in case the target is inside an iframe
+                if attempt % 10 != 0:
+                    if time.monotonic() >= deadline:
+                        return None
+                    attempt += 1
+                    await asyncio.sleep(poll_ms / 1000)
+                    continue
         hit = await find(page, target)
         if hit:
             return hit

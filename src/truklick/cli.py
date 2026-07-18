@@ -58,12 +58,22 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--human-motion", action="store_true",
                      help="Enable human-like motion (easing+jitter). Refinement.")
     run.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+
+    g = sub.add_parser("gui", help="Open the control panel (no terminal needed)")
+    g.add_argument("--port", type=int, default=8765)
+    g.add_argument("--no-open", action="store_true", help="Don't open a browser")
     return p
 
 
 async def _run(args: argparse.Namespace) -> int:
+    recipe_path = args.recipe
+    if not Path(recipe_path).exists():
+        from .gui import _base_dir
+        bundled = _base_dir() / recipe_path
+        if bundled.exists():
+            recipe_path = bundled
     try:
-        recipe = load_recipe(args.recipe)
+        recipe = load_recipe(recipe_path)
     except RecipeError as exc:
         log.error("%s", exc)
         return 2
@@ -117,9 +127,23 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .bootstrap import configure_frozen_env
+    configure_frozen_env()   # must run before Playwright resolves browsers
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Double-clicked binary (no args) -> open the control panel, not a usage error.
+    if not argv:
+        argv = ["gui"]
     args = build_parser().parse_args(argv)
     setup_logging(logging.DEBUG if getattr(args, "verbose", False) else logging.INFO)
+    if args.command == "gui":
+        from .bootstrap import ensure_chromium
+        ensure_chromium()
+        from .gui import serve
+        return serve(port=args.port, open_browser=not args.no_open)
     if args.command == "run":
+        if not args.attach:
+            from .bootstrap import ensure_chromium
+            ensure_chromium()   # before the loop starts
         try:
             return asyncio.run(_run(args))
         except KeyboardInterrupt:

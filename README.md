@@ -1,125 +1,147 @@
 # Truklick
 
-**Trusted, background-capable browser automation for everyone — not just coders.**
+**Real clicks. Any website. Even minimized.**
 
-Truklick is an open-source, cross-platform desktop tool that runs small,
-shareable **recipes** to automate any website. Unlike browser-extension auto-clickers,
-its clicks are **real, OS-trusted input** (they pass `isTrusted` checks that reject
-extension clicks). Unlike screen-pixel macro tools, it keeps working **while the
-window is minimized** — with **no virtual display required**.
+Truklick is an open-source automation platform for the browser. It fires **genuinely
+trusted input** (`isTrusted === true`) at any Chromium-rendered page — the kind of
+click a browser extension physically cannot produce — and it keeps working while the
+window is **minimized or in the background**, with no virtual display.
 
-Think **"Tampermonkey, but the clicks are real and it works in the background,
-and you don't have to be a programmer."**
+You automate things by loading a **recipe**: a small, shareable file that says
+"wait for this, click that." Recipes are plain text, git-friendly, and easy to pass
+around. **You don't have to be a programmer.**
 
-> ⚠️ Early-stage project, built in the open. Yes, it's being built with the help of
-> Claude — that's not hidden; see `/docs`. The foundation is validated with real,
-> reproducible proofs (see `docs/PROVEN_FACTS.md` and `/poc`).
+> Think *"Tampermonkey, but the clicks are real, it works in the background, and
+> anyone can use it."*
 
 ---
 
-## Why this exists
+## Why it exists
 
-The author needed to reliably automate a couple of buttons on a web dashboard, in the
-background, 24/7. Every tool fell short: **browser extensions can't send trusted
-input**, and **OS macro tools (xdotool/RobotGo) need a visible screen and break when
-minimized.** After hand-building an elaborate virtual-display VPS contraption to make
-it work, the author found a cleaner way — **trusted input over the Chrome DevTools
-Protocol (CDP), which works minimized without any virtual display** — and built the
-tool they wished existed. (Full story: `docs/RESEARCH.md`, `docs/INNOVATION.md`.)
+Three ways to click something on a web page, and until now you had to pick your poison:
 
-## How it works (the core idea)
+| Approach | Real/trusted click? | Works minimized? | Needs a visible screen? | Usable by a non-coder? |
+|---|---|---|---|---|
+| Browser extension JS | ❌ never | — | no | yes |
+| OS pixel clicker (xdotool, RobotGo, AutoHotkey) | ✅ | ❌ | **yes** | no |
+| **Truklick** (CDP `Input.dispatchMouseEvent`) | ✅ | ✅ | **no** | **that's the point** |
 
-| Approach | Trusted click? | Works minimized? | Needs a visible/virtual display? |
-|---|---|---|---|
-| Browser extension JS | ❌ | — | no |
-| OS pixel click (xdotool/RobotGo) | ✅ | ❌ | **yes** |
-| **Truklick (CDP `Input.dispatchMouseEvent`)** | ✅ | ✅ | **no** |
+Extensions can't produce trusted input — it's an unforgeable browser security
+guarantee, so any site that checks gets to reject them. Pixel clickers *are* trusted
+but click *screen coordinates*, so they need a live screen and break the moment
+anything moves. Truklick drives the browser directly over the Chrome DevTools
+Protocol: trusted like a real mouse, but aimed at **the element**, not a pixel — so it
+survives layout changes and keeps running in the background.
 
-This is proven, not claimed — see `/poc` for the two proof scripts and
-`docs/PROVEN_FACTS.md` for results.
+This isn't a claim. It's measured — see [`docs/PROVEN_FACTS.md`](docs/PROVEN_FACTS.md)
+and the reproducible proofs in [`poc/`](poc/).
+
+## What you can build with it
+
+Anything that is "watch a page, and when *X* appears, do *Y*" — dashboards that need
+babysitting, queues, repetitive click-throughs, internal tools with no API. The engine
+is completely **use-case agnostic**: it only knows how to find elements and click,
+type, and drag them. What you automate is your recipe, and your business.
+
+The repo ships example recipes (including one that operates a merchant payments
+dashboard) to prove the platform generalises — **they're demonstrations, not the
+product.**
+
+## Install
+
+**Just want it working?** Download a single file from
+[**Releases**](https://github.com/ChinmayaThakral/truklick/releases) — Windows, macOS
+and Linux. No Python, no terminal. Run it and a control panel opens in your browser.
+
+**From source** (needs Python 3.12):
+
+```bash
+git clone https://github.com/ChinmayaThakral/truklick.git && cd truklick
+python3.12 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e . && playwright install chromium
+truklick            # opens the control panel
+```
+
+## Use it
+
+```bash
+truklick                                  # control panel (no terminal needed after this)
+truklick run recipes/demo/selftest.json   # prove trusted clicking works, offline
+truklick run <recipe.json>                # run any recipe
+```
+
+Start with **`recipes/demo/selftest.json`** — it's self-contained (no website, no
+login) and turns a button green when Truklick lands a real trusted click on it. If
+that works, your install works.
+
+## Writing a recipe
+
+A recipe is JSON. Targets are found by **visible text, ARIA role, or CSS selector** —
+never by pixel coordinates — so they survive redesigns and any screen size.
+
+```json
+{
+  "name": "Dismiss the popup when it appears",
+  "match_url": "https://example.com/*",
+  "url": "https://example.com",
+  "hotkey": "Escape",
+  "loop": true,
+  "steps": [
+    { "action": "wait_for", "target": { "text": "Close", "exact": true }, "timeout_ms": 60000 },
+    { "action": "click",    "target": { "text": "Close", "exact": true } }
+  ]
+}
+```
+
+Actions: `wait_for`, `click`, `swipe`, `type`, `wait`, `loop`, `condition`.
+Full format in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §4 and ADR-007.
+
+Press the recipe's **hotkey** (default `Escape`) to pause/resume — a badge in the page
+shows whether it's running.
+
+## How it works
+
+```
+ control panel / CLI
+        │
+   recipe runner ──── targeting (text / role / selector → element → live coordinates)
+        │
+   raw CDP Input.dispatchMouseEvent        ← trusted, background-capable
+        │
+   Chromium (anti-throttle flags, persistent profile)
+```
+
+Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Decisions and their evidence: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Status
 
-- ✅ **Phase 0 — Foundation:** trusted + background + real-site + DOM-targeting proven.
-- 🚧 **Phase 1 — Engine + first recipe:** in progress (Windows + Linux).
-- ⏳ Phase 2 — visual picker + GUI for non-coders.
-- ⏳ Phase 3 — distribution + recipe gallery.
+- ✅ **Engine** — trusted clicking, resilient targeting, recipes, hotkey, control panel
+- ✅ **Proven** — trusted input, background/minimized operation, and a full
+  recipe driving a real production site end to end (`PROVEN_FACTS` 1–6)
+- 🚧 **Now** — one-file downloads for all three OSes, visual element picker
+- ⏳ **Next** — recipe gallery, richer editor
 
-See `docs/ROADMAP.md`.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Recipes
+## Honest about the limits
 
-A recipe is a small, human-readable file describing steps (find element → trusted
-click → wait → loop, etc.). Recipes are **user content** — the platform is neutral
-infrastructure, like AutoHotkey or Tampermonkey. The first example recipe automates a
-merchant dashboard; it lives in `recipes/` to demonstrate that the platform generalizes.
+- **Chromium-family only.** CDP is required; Firefox/Safari can't do this.
+- **Sophisticated bot-detection can still spot automation** by *motion physics*, even
+  though the clicks are genuinely trusted. There's an optional human-like motion
+  profile; for ordinary buttons it's unnecessary.
+- **macOS needs Accessibility permission** for the global hotkey, and downloads are
+  currently unsigned.
+- Built in the open with heavy AI assistance — that's not hidden, and every
+  load-bearing claim in `PROVEN_FACTS.md` has a runnable proof behind it.
 
-## Repo layout
+## Contributing
 
-```
-CLAUDE.md            # master context + guardrails (read first, esp. for Claude Code)
-README.md
-LICENSE              # MIT
-docs/
-  PROVEN_FACTS.md    # experimentally verified truths (anti-hallucination anchor)
-  ARCHITECTURE.md    # the technical design
-  RESEARCH.md        # market + technical research
-  INNOVATION.md      # positioning / what's different
-  DECISIONS.md       # architecture decision records (ADRs)
-  ROADMAP.md         # phased build plan
-  SCOPE.md           # what it is / isn't
-  SESSION_LOG.md     # running session log (continuity / anti-drift)
-poc/
-  poc_test_windows.py  # PROOF: trusted CDP click while minimized (local page)
-  poc_test_p2p.py      # PROOF: same, on the real logged-in site
-src/truklick/          # the engine (use-case-agnostic core)
-  browser.py           #   launch Chromium: anti-throttle flags + persistent profile
-  cdp_input.py         #   raw CDP trusted input: click / drag / type / keys
-  targeting.py         #   resilient element location (text/role/selector, iframes)
-  motion.py            #   optional human-like motion (easing+jitter)
-  recipe.py            #   recipe format v1: load + validate
-  runner.py            #   execute steps, loop, hotkey toggle, restart-survive
-  hotkey.py            #   global start/stop hotkey
-  cli.py               #   `truklick run <recipe.json>`
-examples/selftest.html # local page to prove the engine end-to-end (no login)
-recipes/
-  demo/selftest.json   # engine self-test recipe
-  p2p-me/              # first example recipe (user content)
-tests/                 # unit + end-to-end engine tests
-```
-
-## Quick start (dev, Phase 1)
-
-Requires **Python 3.12** (not 3.14 — see SESSION_LOG for why).
-
-```bash
-python3.12 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-playwright install chromium
-```
-
-### Run a recipe
-
-```bash
-# Prove the engine end-to-end against the bundled self-test page (no login/network):
-truklick run recipes/demo/selftest.json \
-  --url "file://$(pwd)/examples/selftest.html" --once
-
-# General form:
-truklick run <recipe.json> [--url URL] [--headless] [--once] [--wait]
-                           [--human-motion] [--no-hotkey] [--profile-dir DIR]
-```
-
-Press the recipe's **hotkey** (default `Escape`) to start/stop; `Ctrl+C` to quit.
-The Chromium profile is persistent (logins survive restarts) and gitignored.
-
-### Verify the foundation for yourself
-
-```bash
-python poc/poc_test_windows.py     # trusted CDP click while minimized (local page)
-pytest -q                          # unit + end-to-end engine tests
-```
+Keep the engine use-case-agnostic — site-specific logic belongs in a recipe, never in
+the core. Don't contradict `docs/PROVEN_FACTS.md` without a new, runnable proof.
+`CLAUDE.md` and `docs/SESSION_LOG.md` carry the full context and history.
 
 ## License
 
-MIT — see `LICENSE`. Use responsibly; recipes you write are your responsibility.
+MIT. What you automate, and whether you're permitted to, is your responsibility —
+the same as any general-purpose automation tool.

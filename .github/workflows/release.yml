@@ -1,0 +1,92 @@
+name: Release
+
+# Push a tag like v0.1.0 to build downloadable binaries for all three OSes and
+# publish them on the Releases page. Non-coders download ONE file and run it.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:        # lets you build from the Actions tab without tagging
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: truklick-linux-x64
+          - os: windows-latest
+            asset: truklick-windows-x64.exe
+          - os: macos-latest
+            asset: truklick-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"      # pinned per ADR-005
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build binary
+        run: pyinstaller packaging/truklick.spec --noconfirm --distpath dist
+
+      - name: Smoke-test the binary
+        shell: bash
+        run: |
+          BIN=dist/truklick
+          [ -f "$BIN.exe" ] && BIN="$BIN.exe"
+          "$BIN" run --help > /dev/null
+          echo "binary runs OK"
+
+      - name: Name the asset
+        shell: bash
+        run: |
+          mkdir -p out
+          if [ -f dist/truklick.exe ]; then cp dist/truklick.exe "out/${{ matrix.asset }}";
+          else cp dist/truklick "out/${{ matrix.asset }}"; chmod +x "out/${{ matrix.asset }}"; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: out/${{ matrix.asset }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          body: |
+            ## Download and run — no terminal, no Python
+
+            | Your computer | Download |
+            |---|---|
+            | **Windows** | `truklick-windows-x64.exe` |
+            | **macOS** (Apple Silicon) | `truklick-macos-arm64` |
+            | **Linux** | `truklick-linux-x64` |
+
+            **Windows:** download and double-click.
+            **macOS / Linux:** download, then in Terminal run
+            `chmod +x ./truklick-*` once, and double-click (or run) it.
+
+            The control panel opens in your browser. Pick a recipe, press **Start**.
+            On first run it downloads the browser it drives (~150 MB, once).
+
+            > macOS may warn the app is unsigned — right-click the file → **Open**
+            > → **Open**. (Signing/notarization is not set up yet.)

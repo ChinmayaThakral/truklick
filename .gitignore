@@ -21,3 +21,8 @@ Thumbs.db
 
 # Capture artifacts (Phase 2 scanner) — may contain page content / sensitive data
 captures/
+
+# build artifacts
+dist/
+build/
+*.spec.bak

@@ -1,13 +1,31 @@
 {
-  "_comment": "Engine self-test recipe (example / user content, ADR-006). Points at the local examples/selftest.html page so you can prove the full loop — launch, target by text, raw trusted CDP click — end to end, minimized, with no login or network. Run it with an absolute file URL, e.g.:  truklick run recipes/demo/selftest.json --url file:///ABSOLUTE/PATH/truklick/examples/selftest.html --once",
+  "_comment": "Self-contained demo \u2014 proves your install works. Uses a data: URL so there is no file path, no website and no login involved. Press Start: a browser opens, Truklick fires a REAL (isTrusted) click, and the button turns green 'TRUSTED'. If that works, everything works.",
   "name": "Truklick self-test",
   "match_url": "file://*",
-  "url": null,
+  "url": "data:text/html;charset=utf-8,%3C%21DOCTYPE%20html%3E%0A%3Chtml%3E%0A%3Chead%3E%3Cmeta%20charset%3D%22utf-8%22%3E%3Ctitle%3ETruklick%20self-test%3C/title%3E%3C/head%3E%0A%3Cbody%20style%3D%22font-family%3A%20sans-serif%3B%20padding%3A%2040px%3B%20background%3A%23111%3B%20color%3A%23eee%3B%22%3E%0A%20%20%3Ch1%3ETruklick%20engine%20self-test%3C/h1%3E%0A%20%20%3Cp%3EAn%20always-present%20element%20the%20engine%20can%20prove%20itself%20against%20%E2%80%94%20the%20same%0A%20%20%20%20%20trusted-click%20check%20as%20the%20PoCs%2C%20but%20driven%20end-to-end%20through%20the%20engine%0A%20%20%20%20%20%28targeting%20%E2%86%92%20raw%20CDP%20click%29.%3C/p%3E%0A%20%20%3Cbutton%20id%3D%22target%22%0A%20%20%20%20%20%20%20%20%20%20style%3D%22font-size%3A%2024px%3B%20padding%3A%2024px%2048px%3B%20margin-top%3A%2024px%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20background%3A%235b5bd6%3B%20color%3Awhite%3B%20border%3Anone%3B%20border-radius%3A12px%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20cursor%3Apointer%3B%22%3E%0A%20%20%20%20Self-Test%20Target%0A%20%20%3C/button%3E%0A%20%20%3Cpre%20id%3D%22log%22%20style%3D%22margin-top%3A24px%3B%20font-size%3A16px%3B%20color%3A%237fd67f%3B%22%3E%3C/pre%3E%0A%20%20%3Cscript%3E%0A%20%20%20%20window.__result%20%3D%20null%3B%0A%20%20%20%20const%20btn%20%3D%20document.getElementById%28%27target%27%29%3B%0A%20%20%20%20const%20log%20%3D%20document.getElementById%28%27log%27%29%3B%0A%20%20%20%20btn.addEventListener%28%27click%27%2C%20%28e%29%20%3D%3E%20%7B%0A%20%20%20%20%20%20window.__result%20%3D%20%7B%20received%3A%20true%2C%20isTrusted%3A%20e.isTrusted%2C%20at%3A%20Date.now%28%29%20%7D%3B%0A%20%20%20%20%20%20log.textContent%20%3D%20%27CLICK%20RECEIVED%20%20isTrusted%3D%27%20%2B%20e.isTrusted%3B%0A%20%20%20%20%20%20btn.style.background%20%3D%20e.isTrusted%20%3F%20%27%232ea043%27%20%3A%20%27%23d29922%27%3B%0A%20%20%20%20%20%20btn.textContent%20%3D%20e.isTrusted%20%3F%20%27TRUSTED%20%E2%9C%93%27%20%3A%20%27UNTRUSTED%20%E2%9C%97%27%3B%0A%20%20%20%20%7D%29%3B%0A%20%20%3C/script%3E%0A%3C/body%3E%0A%3C/html%3E%0A",
   "hotkey": "Escape",
   "loop": false,
   "steps": [
-    { "action": "wait_for", "target": { "text": "Self-Test Target" }, "timeout_ms": 10000 },
-    { "action": "click", "target": { "text": "Self-Test Target" } },
-    { "action": "wait", "ms": 300 }
+    {
+      "action": "wait_for",
+      "target": {
+        "text": "Self-Test Target",
+        "exact": true
+      },
+      "timeout_ms": 10000,
+      "poll_ms": 25
+    },
+    {
+      "action": "click",
+      "target": {
+        "text": "Self-Test Target",
+        "exact": true
+      }
+    },
+    {
+      "action": "wait",
+      "ms": 4000,
+      "_note": "Keeps the window open so you can see the button turn green."
+    }
   ]
 }
