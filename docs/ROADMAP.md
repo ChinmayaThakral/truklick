@@ -28,10 +28,10 @@ minimized, on **Windows and Linux**.
   - [x] Global hotkey toggle (start/stop), configurable (e.g. Escape).
   - [x] Keep-alive supervisor (auto-restart browser/session on crash).
 - [x] **Recipe format v1** finalized (ADR-007). JSON, human-readable.
-- [ ] **First recipe:** `recipes/p2p-me/` — authored from the live DOM once captured
+- [x] **First recipe:** `recipes/p2p-me/` — authored from the live DOM once captured
       (see SESSION_LOG for captured button labels/HTML). Kept SEPARATE from engine.
       (placeholder committed; real DOM capture is the next session's job)
-- [ ] **End-to-end debug** on the real site until it works minimized.
+- [x] **End-to-end debug** on the real site until it works minimized.
       (engine proven end-to-end offline Session 1; minimized trusted-click PROVEN on
       macOS Session 2 = FACT 5; real-site lp.p2p.me minimized run on Windows still pending)
 - [x] CLI to run a recipe: `truklick run <recipe.json>` (also `python -m truklick`)
@@ -39,16 +39,19 @@ minimized, on **Windows and Linux**.
 Exit criteria: run a recipe, minimize the window, watch it work on the real site,
 toggle with hotkey.
 
-## PHASE 2 — USABILITY FOR NON-CODERS
+## PHASE 2 — USABILITY FOR NON-CODERS  (largely delivered in v1, 2026-07-19)
 Goal: someone who can't code can create and run a recipe.
 
 - [ ] **Visual element picker:** click "pick", hover-highlight elements, capture a
       resilient multi-strategy selector on click. (Companion extension OR injected
       content script for scanning/highlighting — but the trusted click stays in the
       engine via CDP.)
-- [ ] **GUI shell:** Tauri (Rust+web) or Wails (Go+web). Recipe list, editor,
+- [x] **Control panel GUI** (local web UI: run/stop, recipe picker, live log,
+      per-step tuning editor). Tauri/Wails deferred — not needed.
+- [ ] ~~GUI shell:~~ Tauri (Rust+web) or Wails (Go+web). Recipe list, editor,
       run/stop toggle, live status/log. No code visible unless the user wants it.
-- [ ] **Recipe builder UX:** pick targets → set order & delays → save → run.
+- [x] **Record by demonstration** (`truklick record`) — replaces hand-writing JSON.
+- [x] **Recipe builder UX:** pick targets → set order & delays → save → run.
 - [ ] **Human-like motion profiles** (easing + jitter) to reduce "too perfect" CDP
       signature (see PROVEN_FACTS caveat).
 

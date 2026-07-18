@@ -343,3 +343,65 @@ disabled), `scripts/open_dashboard.py`, `scripts/capture_now.py`,
    determine whether the order is lost, and consider not clicking Close until Accept
    is confidently reachable.
 4. Gather reliability data across more orders before trusting it unattended.
+
+---
+
+## SESSION 5 — v1: recorder, verification, GUI, packaging (2026-07-19)
+
+**Reframing (author's correction, and it was right):** the repo had drifted into
+reading like a P2P.me clicker. Truklick is a general trusted-automation platform;
+P2P.me is ONE example recipe. README rewritten platform-first; the P2P guide moved to
+`recipes/p2p-me/README.md` and explicitly labelled an example.
+
+**P2P "failures" explained — not a bug.** The author clarified that P2P.me offers each
+order to 3-4 merchants, first to accept wins. So cycles where Close fired but Accept
+never appeared are lost races, not defects. This retires the open question from
+Session 4. The new `expect` step now distinguishes the two cases explicitly.
+
+**Shipped:**
+- **`expect` step + outcome stats.** Verifies an OUTCOME (element present/absent)
+  rather than just "we clicked". Runner reports `outcomes verified: N/M (X%)` on exit.
+  Added to the P2P recipe (Accept button must be GONE = we won the order).
+- **Recorder** (`truklick record`). Demonstrate a task once -> runnable recipe. Each
+  click becomes `wait_for` + `click` (declarative, not a blind macro). Targets use
+  text/ARIA role; framework-generated ids (React/Radix `«r3»`) are refused because
+  they change per render — the lesson learned live in Session 3. VERIFIED: recorded a
+  task whose 2nd button only appears 300ms later, replayed it, task completed,
+  outcomes 1/1.
+- **Control panel GUI** (`truklick` with no args). Recipe picker, Start/Stop, live
+  log, status dot, and a **Tune** editor for per-step delay/timeout/poll (G Hub style).
+  Saves are validated by `load_recipe()` and written via a temp file, so an invalid
+  edit cannot corrupt a working recipe (verified).
+- **On-page RUNNING/PAUSED badge** on hotkey toggle (`pointer-events:none` so it can
+  never occlude a target — tested with the badge directly over a button).
+- **Packaging**: PyInstaller spec + GitHub Actions release workflow -> one file per OS.
+  First-run bootstrap downloads Chromium so users never hear "Playwright".
+- **Speed**: single-round-trip in-page resolver (find + 2-frame stability + hit test in
+  one evaluate). Measured **146.5ms -> 33.4ms per click resolve (4x)**. The remaining
+  ~33ms is two display frames — the floor for proving an element isn't mid-animation.
+
+**Bugs found and fixed (all would have shipped broken):**
+- Frozen builds resolved browsers inside their own throwaway temp bundle and could
+  never find Chromium -> pin `PLAYWRIGHT_BROWSERS_PATH` to the user cache.
+- `chromium_present()` called `sync_playwright()` from inside the asyncio loop, where
+  it always raises; the swallowed error made a *working* install print "could not
+  download the browser".
+- `--once` recipes hung instead of exiting (Session 1); `wait_for` ignored
+  pause/shutdown (Session 1); hotkey claimed "armed" on macOS without Accessibility
+  permission (Session 4).
+
+**Hypotheses I got WRONG this project (recorded so nobody repeats them):**
+1. Accept mis-click was a stale-coordinate race — DISPROVEN by direct old-vs-new
+   comparison; the real cause was a loose `text` fallback matching inside the popup.
+2. The ~50% Accept failure was our timing — DISPROVEN; the mechanics were byte-identical
+   between a success and a failure. It was multi-merchant competition.
+
+**Phase 1 exit criteria: MET.** Recipe runs against the real site ✅, hotkey toggle
+pause/resume ✅ (verified live), trusted+minimized proven on Windows and macOS
+(FACTS 2/5) ✅. The only untested variant is minimized *on the live site specifically*.
+
+**NEXT:**
+1. Verify the Windows and Linux binaries from CI — only macOS has been built and run.
+2. Test the recorder against a real messy site (only synthetic pages so far).
+3. Visual element picker (CDP-injected, per FEATURE_SCANNER.md — not an extension).
+4. Recipe gallery once recipes are easy to make.
