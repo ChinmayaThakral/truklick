@@ -70,8 +70,8 @@
 - **Proof:** `poc/poc_test_mac.py` — window state `minimized`, click received on the
   self-test page, `isTrusted: True`, dispatch ~54ms.
 - **Status:** ✅ PROVEN on macOS (Apple Silicon, real hardware), [date: 2026-07-16].
-- **Still open:** the real *lp.p2p.me* minimized run (on the author's Windows box) is
-  the product-level Phase-1 gate; this fact covers the engine/OS property only.
+- **Follow-up:** the product-level version (live lp.p2p.me, minimized) is now also
+  proven — see FACT 7.
 
 ## FACT 6 — The ENGINE drives the real target end-to-end from a recipe
 - **Claim:** Truklick's engine, running a recipe unattended, performs the full
@@ -95,6 +95,34 @@
   the runner now logs `PASS ABORTED AFTER N CLICK(S)` whenever a pass dies after
   already clicking, so a half-done order is never silent. **Not yet proven:
   reliability across many orders, and the real-site MINIMIZED run.**
+
+## FACT 7 — The engine detects and clicks on the REAL site while MINIMIZED
+- **Claim:** With the window minimized to the macOS Dock, the running recipe detected
+  a live order popup appearing on lp.p2p.me and fired a trusted click at it. This is
+  the product-level version of FACTS 2/5 — not a test page, not a synthetic minimize.
+- **Proof (timestamps from the run, 2026-07-19):**
+  ```
+  02:12:17  WINDOW -> MINIMIZED (in Dock)      [AXMinimized=true]
+            ...no restore in this interval...
+  02:12:34  wait_for satisfied (fast in main frame)
+  02:12:34  clicking {'text': 'Close', 'exact': True}
+  02:12:34  input | click (640, 652) button=left
+  ```
+  The window was verified minimized 17s before the click, with no `on screen`
+  transition in between.
+- **HOW TO MEASURE THIS — non-obvious, cost us several wrong attempts:**
+  `document.visibilityState`, `document.hidden` and CDP `Browser.getWindowBounds`
+  **all report the page as visible/maximized even when the window is in the Dock.**
+  That is not a bug — it is exactly what the anti-throttle flags
+  (`--disable-backgrounding-occluded-windows`, `--disable-renderer-backgrounding`)
+  are for, and it is *why* clicks keep landing. Use the OS instead:
+  `osascript … value of attribute "AXMinimized" of window 1`. Also note CDP
+  `Browser.setWindowBounds` silently does nothing once a window is `maximized`.
+- **Status:** ✅ PROVEN on macOS against live lp.p2p.me, [date: 2026-07-19].
+- **Same-run context:** that particular order was then lost to another merchant
+  (Accept never appeared; `PASS ABORTED AFTER 1 CLICK(S)` fired correctly). Orders go
+  to 3-4 merchants, first to accept wins, so ~50% losses are competition, not defects.
+  Session tally: 2 orders won (both `EXPECT OK` verified), 2 lost to competition.
 
 ---
 

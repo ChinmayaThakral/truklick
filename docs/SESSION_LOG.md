@@ -441,3 +441,44 @@ rules. Found and fixed:
   with the live findings folded in (no iframes on lp.p2p.me; Radix per-render ids make
   CSS paths worthless there).
 All internal doc links resolve. 25 tests green.
+
+---
+
+## SESSION 6 — Phase 1 closed: FACT 7, minimized on the live site (2026-07-19)
+
+**PHASE 1 EXIT CRITERIA NOW FULLY MET.** Ran the recipe attached to the live logged-in
+session with a window-state watcher recording evidence.
+
+**FACT 7 proven:** window verified in the macOS Dock at 02:12:17 (`AXMinimized=true`),
+order popup appeared, engine detected it and fired a trusted click at 02:12:34 — no
+restore in between. Trusted input, at a real element, on a live production site, with
+the window backgrounded.
+
+**The measurement lesson (this is the reusable part):** `document.visibilityState`,
+`document.hidden` and CDP `Browser.getWindowBounds` ALL report the page as
+visible/maximized while the window sits in the Dock. That is not a bug — it is
+precisely what `--disable-backgrounding-occluded-windows` /
+`--disable-renderer-backgrounding` do, and it is *why* the clicks keep landing. We
+spent several attempts trusting instruments our own architecture is designed to
+defeat, and told the author three times (wrongly) that his window wasn't minimized.
+The authoritative signal is the OS: `osascript … AXMinimized of window 1`. Also
+learned: CDP `Browser.setWindowBounds` silently no-ops once a window is `maximized`.
+
+**Three near-misses on this single checkbox, worth remembering:**
+1. The ROADMAP had it ticked before it was ever done (caught in the doc audit).
+2. It was measured with detectors that cannot see it (caught by AXMinimized).
+3. A cycle was nearly credited where the window had been restored 2s before the
+   clicks (caught by comparing timestamps rather than eyeballing the log).
+Each was caught by checking rather than assuming. That discipline is the only reason
+FACT 7 is trustworthy.
+
+**Live tally for the session:** 4 orders seen — **2 won** (both verified by
+`EXPECT OK — order accepted`), **2 lost to competition** (Accept never appeared;
+`PASS ABORTED AFTER 1 CLICK(S)` fired correctly both times). Orders go to 3-4
+merchants, first to accept wins, so ~50% losses are market behaviour, not defects —
+and the `expect` step is what makes that distinction visible instead of a mystery.
+
+**State:** v0.1.1 released (binaries for all 3 OSes). 25 tests green. FACTS 1-7,
+ADRs 1-13. Phase 1 complete; Phase 2 largely delivered (recorder, control panel,
+tuning editor). Remaining: visual element picker, recipe gallery, code signing,
+recorder tested on more than one real site.

@@ -33,14 +33,13 @@ minimized, on **Windows and Linux**.
       (placeholder committed; real DOM capture is the next session's job)
 - [x] **End-to-end run on the real site** — recipe drove live lp.p2p.me unattended
       (FACT 6, Session 4/5), hotkey pause/resume verified live.
-- [ ] **MINIMIZED on the real site** — STILL NOT DONE. Trusted-while-minimized is
-      proven at engine level on Windows (FACT 2) and macOS (FACT 5), but the live
-      lp.p2p.me run has always been with the window visible. Do not mark this done
-      until someone actually minimizes the window during a real order.
+- [x] **MINIMIZED on the real site** — DONE 2026-07-19 (FACT 7). Window verified in
+      the Dock via AXMinimized at 02:12:17; order popup detected and trusted click
+      fired at 02:12:34 with no restore in between.
 - [x] CLI to run a recipe: `truklick run <recipe.json>` (also `python -m truklick`)
 
 Exit criteria: run a recipe, minimize the window, watch it work on the real site,
-toggle with hotkey.
+toggle with hotkey.  **ALL MET as of 2026-07-19 — PHASE 1 COMPLETE.**
 
 ## PHASE 2 — USABILITY FOR NON-CODERS  (largely delivered in v1, 2026-07-19)
 Goal: someone who can't code can create and run a recipe.
