@@ -499,3 +499,25 @@ Two self-inflicted detours worth noting: the first slow-drift test resolved befo
 CSS animation had started moving (so the element genuinely WAS stationary — invalid
 test), and the second failed on a `NameError` I misread as a logic failure for two
 rounds. Read the actual error before theorising.
+
+**End-of-session live results (2026-07-19, ~02:00-02:35).** Ran the recipe against the
+live site with the window minimized in the Dock the whole time (2 restores, both by
+the author checking on it — timestamps excluded from the FACT 7 evidence window).
+
+- **7 order popups detected, all while minimized.** FACT 7 is proven several times
+  over, not once.
+- **1 order won and verified** (`EXPECT OK — order accepted`), **5 lost** to other
+  merchants (`PASS ABORTED AFTER 1 CLICK(S)` each time, firing correctly).
+- Orders arrived in bursts (~3 in 4 minutes at one point), not the ~1/hour baseline.
+
+**Honest read of the 1-in-6 win rate:** too small a sample to conclude anything, and
+two explanations remain open — normal variance in a 3-4 merchant race, or our
+Close->Accept latency genuinely losing races. The speed pass (73.9ms -> 23.8ms) landed
+near the end and the loop only ran on the fast code for ~1 minute, so it has NOT been
+evaluated. Next session: run on the fast code across a meaningful number of orders and
+compare the win rate. `expect` makes that measurable rather than a guess.
+
+**Shutdown:** loop stopped, window watcher stopped, dashboard browser closed (CDP
+:9222 freed), `captures/` deleted (contained balance, bank names, account fragment and
+order IDs in plaintext), build artifacts and temp files removed. Browser profiles kept
+(they hold logins). Repo clean and pushed.
