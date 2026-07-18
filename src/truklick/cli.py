@@ -36,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--profile-dir", type=Path, default=Path("./truklick_profile"),
                      help="Persistent Chromium profile dir (keeps logins). "
                           "Gitignored. Default: ./truklick_profile")
+    run.add_argument("--attach", metavar="CDP_URL", default=None,
+                     help="Attach to an ALREADY-RUNNING browser over CDP "
+                          "(e.g. http://localhost:9222) instead of launching one. "
+                          "Drives the session you're already logged into; never "
+                          "navigates, and leaves your browser open on exit.")
     run.add_argument("--headless", action="store_true",
                      help="Run Chromium headless (default: headful/minimizable)")
     run.add_argument("--channel", default=None,
@@ -73,6 +78,7 @@ async def _run(args: argparse.Namespace) -> int:
         profile_dir=args.profile_dir,
         headless=args.headless,
         channel=args.channel,
+        cdp_url=args.attach,
     ))
     await bm.start()
 

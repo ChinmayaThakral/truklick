@@ -46,8 +46,15 @@ class RecipeRunner:
 
     async def _attach(self) -> None:
         """(Re)acquire page, navigate if configured, open CDP, bind input."""
-        self.page = await self.browser.ensure_page()
-        if self.recipe.url:
+        from urllib.parse import urlparse
+        hint = urlparse(self.recipe.url or "").netloc or None
+        self.page = await self.browser.ensure_page(url_contains=hint)
+
+        if self.browser.is_attached:
+            # Never navigate someone's live session: a goto would reload the page and
+            # destroy an open popup (the very thing we're waiting for).
+            log.info("Attached mode — using the page as-is, NOT navigating.")
+        elif self.recipe.url:
             log.info("Navigating to %s", self.recipe.url)
             await self.page.goto(self.recipe.url, wait_until="domcontentloaded")
         current = self.page.url
@@ -87,7 +94,10 @@ class RecipeRunner:
 
     async def run(self) -> None:
         await self._attach()
-        self.browser.start_watchdog(self._on_restart)
+        if not self.browser.is_attached:
+            # In attach mode a "restart" would launch a NEW browser, which is wrong —
+            # the user's session is the one that matters.
+            self.browser.start_watchdog(self._on_restart)
 
         if self.config.auto_start:
             self._active.set()

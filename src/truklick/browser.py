@@ -49,6 +49,10 @@ class BrowserConfig:
     extra_args: list[str] = field(default_factory=list)
     # Watchdog poll interval; the supervisor restarts the browser if it dies.
     keepalive_interval_s: float = 3.0
+    # If set (e.g. "http://localhost:9222"), ATTACH to an already-running browser
+    # over CDP instead of launching one. Used to drive a session the user is already
+    # logged into. In this mode we never close their browser on stop().
+    cdp_url: Optional[str] = None
 
 
 class BrowserManager:
@@ -69,6 +73,8 @@ class BrowserManager:
         self.config = config
         self._pw: Optional[Playwright] = None
         self._context: Optional[BrowserContext] = None
+        self._browser = None          # set only when attached over CDP
+        self._attached = False
         self._closed = asyncio.Event()
         self._watchdog_task: Optional[asyncio.Task] = None
         self._on_restart: Optional[Callable[["BrowserManager"], Awaitable[None]]] = None
@@ -77,7 +83,11 @@ class BrowserManager:
     # -- lifecycle ---------------------------------------------------------
 
     async def start(self) -> None:
-        """Launch a persistent Chromium context with anti-throttle flags."""
+        """Launch a persistent Chromium context, or ATTACH to a running one."""
+        if self.config.cdp_url:
+            await self._attach_existing()
+            return
+
         self.config.profile_dir.mkdir(parents=True, exist_ok=True)
         args = ANTI_THROTTLE_FLAGS + list(self.config.extra_args)
         log.info("Launching Chromium (headless=%s, profile=%s)",
@@ -98,12 +108,44 @@ class BrowserManager:
         self._context.on("close", lambda _: self._closed.set())
         log.info("Chromium up. %d page(s) open.", len(self._context.pages))
 
+    async def _attach_existing(self) -> None:
+        """Connect to a browser the user already has open (they stay logged in).
+
+        We deliberately do NOT create/close pages or contexts here — this is someone's
+        live session."""
+        url = self.config.cdp_url
+        log.info("Attaching to existing browser at %s", url)
+        self._pw = await async_playwright().start()
+        self._browser = await self._pw.chromium.connect_over_cdp(url)
+        if not self._browser.contexts:
+            raise RuntimeError(f"Attached to {url} but it has no browser contexts")
+        self._context = self._browser.contexts[0]
+        self._attached = True
+        self._closed.clear()
+        log.info("Attached. %d page(s) open. (Your browser will be left open.)",
+                 len(self._context.pages))
+
+    @property
+    def is_attached(self) -> bool:
+        return self._attached
+
     async def stop(self) -> None:
-        """Tear down the browser and Playwright cleanly."""
+        """Tear down the browser and Playwright cleanly.
+
+        When attached to a user's existing browser we only DISCONNECT — closing it
+        would kill their logged-in session."""
         self._stopping = True
         if self._watchdog_task:
             self._watchdog_task.cancel()
             self._watchdog_task = None
+        if self._attached:
+            log.info("Detaching — leaving your browser open.")
+            self._context = None
+            self._browser = None
+            if self._pw:
+                await self._pw.stop()
+                self._pw = None
+            return
         if self._context:
             try:
                 await self._context.close()
@@ -145,9 +187,16 @@ class BrowserManager:
             raise RuntimeError("No open pages")
         return ctx.pages[0]
 
-    async def ensure_page(self) -> Page:
-        """Return an existing page, creating one if the context has none."""
+    async def ensure_page(self, url_contains: Optional[str] = None) -> Page:
+        """Return an existing page, creating one if the context has none.
+
+        url_contains: prefer a page whose URL contains this (used when attached, so we
+        drive the tab the user is actually on rather than an unrelated one)."""
         ctx = self.context
+        if url_contains:
+            for pg in ctx.pages:
+                if url_contains in (pg.url or ""):
+                    return pg
         if ctx.pages:
             return ctx.pages[0]
         return await ctx.new_page()
