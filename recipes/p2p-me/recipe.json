@@ -7,6 +7,8 @@
 
   "_uniqueness_verified": "With the popup open, exactly 2 elements contain 'Close' and both are the same button (div wrapper + its <p> label) — unambiguous. On the home screen after closing, exactly 1 element contains 'Accept' and it is a real <button>. NOTE: while the popup is open, 'Accept' as SUBSTRING also appears in 'Slide to Accept' and 'Accept to view UPI ID' — which is why the Accept target uses role=button + exact name, so it can never match those non-button texts.",
 
+  "_live_run_2026_07_19": "FIRST live run: Close clicked correctly (confirmed visually), Accept did NOT take effect. Evidence: the role strategy found 0 matches (so the real home <button>Accept</button> did not exist yet — the popup was still dismissing), and the Accept target ALSO carried a loose 'text' fallback, which matched something inside the still-open popup and clicked it at (668,597) — 55px ABOVE the Close click at (640,652), i.e. still in the popup region. FIX: the Accept target now requires role=button ONLY, with NO text fallback, so wait_for keeps polling until a genuine button exists instead of clicking a wrong element. Trade-off accepted: if role ever fails to match, we WAIT (order not auto-accepted) rather than mis-click — on a financial dashboard, not-clicking is the safe failure.",
+
   "name": "P2P.me — auto accept & close",
   "match_url": "https://lp.p2p.me/*",
   "url": "https://lp.p2p.me",
@@ -28,13 +30,13 @@
     },
     {
       "action": "wait_for",
-      "target": { "role": "button", "name": "Accept", "exact": true, "text": "Accept" },
+      "target": { "role": "button", "name": "Accept", "exact": true },
       "timeout_ms": 15000,
       "_note": "Home-screen Accept appears only when an order is pending. role=button+exact avoids matching 'Slide to Accept'/'Accept to view UPI ID'. Falls back to exact text if role lookup fails."
     },
     {
       "action": "click",
-      "target": { "role": "button", "name": "Accept", "exact": true, "text": "Accept" },
+      "target": { "role": "button", "name": "Accept", "exact": true },
       "_note": "THIS is the auto-accept step — delete it to revert to close-only (script would then just dismiss popups and leave Accept for you to tap)."
     }
   ]

@@ -172,10 +172,15 @@ class RecipeRunner:
                 return True
 
             if action == "click":
-                hit = await targeting.find(self.page, step.target)
+                # Verified click point: box must be stable AND elementFromPoint must
+                # actually hit the target, so we never fire at a stale position.
+                hit = await targeting.find_click_point(self.page, step.target)
                 if hit is None:
-                    log.warning("click target not found: %s", step.target)
+                    log.warning("click target not found / never settled: %s",
+                                step.target)
                     return False
+                log.info("clicking %r via %s in %s", step.target, hit.strategy,
+                         hit.where)
                 await self.input.click(hit.cx, hit.cy)
                 return True
 

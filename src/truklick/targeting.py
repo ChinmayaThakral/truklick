@@ -103,6 +103,78 @@ async def find(page: Page, target: dict, require_visible: bool = True) -> Option
     return None
 
 
+async def _iter_candidates(page: Page, target: dict):
+    """Yield (strategy, where, locator) for each strategy in each frame."""
+    for frame in _frames(page):
+        where = "main frame" if frame == page.main_frame else f"iframe({frame.url[:48]})"
+        for strategy, locator in _locators_for(frame, target):
+            yield strategy, where, locator
+
+
+async def find_click_point(page: Page, target: dict, settle_ms: int = 120,
+                           attempts: int = 6) -> Optional[Hit]:
+    """Resolve a target to a point that is SAFE to click.
+
+    Raw CDP dispatches at coordinates, so a box read during a layout animation can
+    be stale by the time the click fires — the click then lands where the element
+    WAS. (Seen live: clicking Close then immediately resolving the next target while
+    the dialog was still dismissing.) So we:
+      1. wait until the bounding box is STABLE across two reads settle_ms apart, and
+      2. verify document.elementFromPoint() at the centre actually hits that element
+         (catches overlays and mid-transition reflow).
+    Returns None if it can't be made safe within `attempts`.
+    """
+    import asyncio
+
+    for _ in range(attempts):
+        found = None
+        async for strategy, where, locator in _iter_candidates(page, target):
+            try:
+                if await locator.count() == 0 or not await locator.is_visible():
+                    continue
+                box1 = await locator.bounding_box()
+                if not box1 or box1["width"] <= 0 or box1["height"] <= 0:
+                    continue
+                await asyncio.sleep(settle_ms / 1000)
+                box2 = await locator.bounding_box()
+                if not box2:
+                    continue
+                if any(abs(box1[k] - box2[k]) > 0.5 for k in ("x", "y", "width", "height")):
+                    log.debug("target still moving (%s), retrying", strategy)
+                    found = "moving"
+                    break  # layout animating — restart the whole resolve
+                cx = box2["x"] + box2["width"] / 2
+                cy = box2["y"] + box2["height"] / 2
+                handle = await locator.element_handle()
+                if handle is not None:
+                    hits = await page.evaluate(
+                        """([el, x, y]) => {
+                            const t = document.elementFromPoint(x, y);
+                            if (!t) return false;
+                            return el === t || el.contains(t) || t.contains(el);
+                        }""",
+                        [handle, cx, cy],
+                    )
+                    if not hits:
+                        log.debug("point (%.0f,%.0f) does not hit target via %s "
+                                  "(overlay/reflow?)", cx, cy, strategy)
+                        found = "occluded"
+                        break
+                log.debug("click point verified via %s in %s @ (%.0f, %.0f)",
+                          strategy, where, cx, cy)
+                return Hit(cx=cx, cy=cy, x=box2["x"], y=box2["y"],
+                           width=box2["width"], height=box2["height"],
+                           strategy=strategy, where=where)
+            except Exception as exc:
+                log.debug("strategy %s errored: %s", strategy, exc)
+                continue
+        if found is None:
+            return None  # target genuinely not present
+        await asyncio.sleep(settle_ms / 1000)
+    log.warning("target never settled into a safely clickable point: %s", target)
+    return None
+
+
 async def wait_for(page: Page, target: dict, timeout_ms: int = 30000,
                    poll_ms: int = 250,
                    should_continue=None) -> Optional[Hit]:
