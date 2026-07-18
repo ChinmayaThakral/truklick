@@ -11,6 +11,7 @@ listener; that is a Phase 2 packaging concern.
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import Callable, Optional
 
 from .log import get_logger
@@ -27,6 +28,18 @@ _SPECIAL_KEYS = {
     "Space": "space", "Tab": "tab", "Enter": "enter", "Pause": "pause",
     "Insert": "insert", "Delete": "delete",
 }
+
+
+def _macos_accessibility_trusted() -> Optional[bool]:
+    """True/False on macOS (is this process allowed to monitor input?), None elsewhere
+    or if it can't be determined. Without this permission pynput silently no-ops."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        from ApplicationServices import AXIsProcessTrusted  # via pyobjc (pynput dep)
+        return bool(AXIsProcessTrusted())
+    except Exception:
+        return None
 
 
 class HotkeyToggle:
@@ -64,6 +77,17 @@ class HotkeyToggle:
         except Exception as exc:
             log.warning("Could not start hotkey listener (%s). Use Ctrl+C to stop.",
                         exc)
+            return False
+
+        # macOS: the listener starts and reports running even with NO Accessibility
+        # permission, but silently receives nothing. Never claim "armed" in that case.
+        if _macos_accessibility_trusted() is False:
+            log.warning(
+                "Hotkey '%s' will NOT work: macOS Accessibility permission is not "
+                "granted to the app running this (Terminal/iTerm/IDE). The listener "
+                "starts but receives no keys. Fix: System Settings > Privacy & "
+                "Security > Accessibility > add your terminal app, then restart it. "
+                "Until then Ctrl+C stops the run.", self.key_name)
             return False
 
         log.info("Hotkey '%s' armed — press it to start/stop.", self.key_name)
