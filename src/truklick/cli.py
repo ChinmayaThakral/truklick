@@ -53,6 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Start paused; press the hotkey to begin")
     run.add_argument("--no-hotkey", action="store_true",
                      help="Disable the global hotkey (use Ctrl+C to stop)")
+    run.add_argument("--no-overlay", action="store_true",
+                     help="Don't show the RUNNING/PAUSED status toast in the page")
     run.add_argument("--human-motion", action="store_true",
                      help="Enable human-like motion (easing+jitter). Refinement.")
     run.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
@@ -85,6 +87,7 @@ async def _run(args: argparse.Namespace) -> int:
     runner = RecipeRunner(bm, recipe, RunnerConfig(
         auto_start=not args.wait,
         human_motion=args.human_motion,
+        status_overlay=not args.no_overlay,
     ))
 
     loop = asyncio.get_running_loop()

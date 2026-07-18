@@ -29,6 +29,35 @@ log = get_logger("runner")
 class RunnerConfig:
     auto_start: bool = True        # begin running immediately (else wait for hotkey)
     human_motion: bool = False     # toggle easing+jitter motion profile
+    status_overlay: bool = True    # show RUNNING/PAUSED toast in the page on toggle
+
+
+# Injected on toggle so the user can see the state without looking at the terminal.
+# pointer-events:none is REQUIRED — it keeps the toast out of elementFromPoint(), so
+# it can never occlude a target or block a click (see targeting.find_click_point).
+_TOAST_JS = """
+(state) => {
+  let el = document.getElementById('__truklick_toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '__truklick_toast';
+    el.style.cssText =
+      'position:fixed;top:16px;right:16px;z-index:2147483647;padding:10px 16px;' +
+      'border-radius:10px;font:600 14px system-ui,-apple-system,sans-serif;' +
+      'color:#fff;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.35);' +
+      'transition:opacity .25s;';
+    document.documentElement.appendChild(el);
+  }
+  const running = state === 'running';
+  el.textContent = running ? '\\u25CF  Truklick RUNNING' : '\\u23F8  Truklick PAUSED';
+  el.style.background = running ? '#2ea043' : '#d29922';
+  el.style.opacity = '1';
+  clearTimeout(window.__truklickToastTimer);
+  if (running) {
+    window.__truklickToastTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+  }
+}
+"""
 
 
 class RecipeRunner:
@@ -79,9 +108,26 @@ class RecipeRunner:
         if self._active.is_set():
             self._active.clear()
             log.info("PAUSED (hotkey). Press again to resume.")
+            self._flash_status("paused")
         else:
             self._active.set()
             log.info("RUNNING (hotkey).")
+            self._flash_status("running")
+
+    def _flash_status(self, state: str) -> None:
+        """Show the state in the page itself, so the user doesn't need the terminal.
+        Fire-and-forget: never let a UI nicety break or delay the run."""
+        if not self.config.status_overlay or self.page is None:
+            return
+        async def _go():
+            try:
+                await self.page.evaluate(_TOAST_JS, state)
+            except Exception as exc:
+                log.debug("status overlay failed (ignored): %s", exc)
+        try:
+            asyncio.create_task(_go())
+        except RuntimeError:
+            pass  # no running loop (e.g. during teardown)
 
     def request_shutdown(self) -> None:
         self._shutdown.set()
@@ -103,9 +149,11 @@ class RecipeRunner:
         if self.config.auto_start:
             self._active.set()
             log.info("Runner started (auto-start). Recipe: %s", self.recipe.name)
+            self._flash_status("running")
         else:
             log.info("Runner armed but paused — press '%s' to start.",
                      self.recipe.hotkey)
+            self._flash_status("paused")
 
         try:
             while not self._shutdown.is_set():

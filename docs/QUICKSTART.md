@@ -57,6 +57,11 @@ That's one order closed and accepted.
 
 ## Things worth knowing
 
+**You can see the state on the browser itself.** A small badge appears top-right of
+the page: green **● Truklick RUNNING** (fades after 2s) or amber **⏸ Truklick PAUSED**
+(stays until you resume). So you can tell at a glance whether it's live without
+switching to the terminal. Turn it off with `--no-overlay` if you'd rather not have it.
+
 **It accepts every order it sees.** While it's running it will keep accepting orders,
 including several in a row. If you can only work one order at a time, stop it
 (`Ctrl+C`) while you handle one, then start it again.
