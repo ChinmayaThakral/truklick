@@ -10,10 +10,13 @@ RUN:
 """
 
 import asyncio
+import sys
 
 from playwright.async_api import async_playwright
 
 CDP_PORT = 9222
+WINDOW_W, WINDOW_H = 1440, 900   # sensible desktop size; override with --size WxH
+
 LAUNCH_ARGS = [
     "--disable-background-timer-throttling",
     "--disable-backgrounding-occluded-windows",
@@ -28,11 +31,23 @@ TARGET_URL = "https://lp.p2p.me"
 
 
 async def main():
+    w, h = WINDOW_W, WINDOW_H
+    if "--size" in sys.argv:
+        try:
+            w, h = (int(v) for v in sys.argv[sys.argv.index("--size") + 1].split("x"))
+        except Exception:
+            print("--size expects WxH, e.g. --size 1920x1080")
+            return
+
     async with async_playwright() as p:
         ctx = await p.chromium.launch_persistent_context(
             user_data_dir=PROFILE_DIR,
             headless=False,
-            args=LAUNCH_ARGS,
+            args=LAUNCH_ARGS + [f"--window-size={w},{h}"],
+            # no_viewport: don't emulate a fixed 1280x720 viewport — let the page use
+            # the real OS window size. (Targeting is resolution-independent either way;
+            # this is purely so the window looks/behaves normally.)
+            no_viewport=True,
         )
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         await page.goto(TARGET_URL, wait_until="domcontentloaded")
