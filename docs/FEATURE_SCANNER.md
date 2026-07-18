@@ -1,6 +1,18 @@
 # FEATURE SPEC — Objective DOM Scanner / Capture ("Capture Mode")
 
-> Drop this in `docs/` (e.g. `docs/FEATURE_SCANNER.md`) and hand it to Claude Code.
+> **STATUS (2026-07-19, v0.1.1): NOT IMPLEMENTED AS SPEC'D — partly superseded.**
+> The non-coder gap this was meant to close is now largely closed by the **recorder**
+> (`truklick record`, ADR-012), which captures targets while you demonstrate the task
+> instead of dumping the whole page. What remains genuinely useful from this spec is
+> the **visual element picker** (hover-highlight, click to capture a target), which is
+> still open. The CDP-injection-over-extension decision here still stands and was
+> reinforced in practice. Two findings from live use that this spec should absorb:
+> lp.p2p.me has **no iframes** (all main-frame), and its popup is a Radix dialog with
+> **per-render generated ids**, so CSS paths inside it are worthless — text/role
+> targeting won, which is the opposite of this doc's general advice.
+>
+> Original spec follows.
+>
 > This is a Phase-2 feature (visual picker family in ROADMAP). It must obey every
 > rule in CLAUDE.md and must not contradict docs/PROVEN_FACTS.md.
 

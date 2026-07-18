@@ -31,9 +31,12 @@ minimized, on **Windows and Linux**.
 - [x] **First recipe:** `recipes/p2p-me/` — authored from the live DOM once captured
       (see SESSION_LOG for captured button labels/HTML). Kept SEPARATE from engine.
       (placeholder committed; real DOM capture is the next session's job)
-- [x] **End-to-end debug** on the real site until it works minimized.
-      (engine proven end-to-end offline Session 1; minimized trusted-click PROVEN on
-      macOS Session 2 = FACT 5; real-site lp.p2p.me minimized run on Windows still pending)
+- [x] **End-to-end run on the real site** — recipe drove live lp.p2p.me unattended
+      (FACT 6, Session 4/5), hotkey pause/resume verified live.
+- [ ] **MINIMIZED on the real site** — STILL NOT DONE. Trusted-while-minimized is
+      proven at engine level on Windows (FACT 2) and macOS (FACT 5), but the live
+      lp.p2p.me run has always been with the window visible. Do not mark this done
+      until someone actually minimizes the window during a real order.
 - [x] CLI to run a recipe: `truklick run <recipe.json>` (also `python -m truklick`)
 
 Exit criteria: run a recipe, minimize the window, watch it work on the real site,

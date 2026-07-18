@@ -420,3 +420,24 @@ reverse-engineered by hand in Session 3*. Three real defects found and fixed:
 3. **Blind `wait` sleeps** from recorded pauses — removed; `wait_for` already waits on
    the real condition. Observed gaps kept as `_recorded_gap_ms` metadata for tuning.
 Locked in by `tests/test_recorder.py` (25 tests green).
+
+**Doc-sync audit (end of Session 5).** Checked the repo against the project's own
+rules. Found and fixed:
+- **ROADMAP contradicted PROVEN_FACTS.** It marked "end-to-end debug on the real site
+  until it works minimized" as DONE. We never ran minimized on the live site — the
+  live runs were all with the window visible. Split into "end-to-end on the real site"
+  (done, FACT 6) and "MINIMIZED on the real site" (still open). Do not tick the second
+  until someone actually minimizes during a real order.
+- **ARCHITECTURE was pre-v1**: no `expect`, no recorder, GUI still described as
+  Tauri/Wails, platform section said Windows+Linux-first. Updated to describe the tool
+  that actually exists.
+- **Five undocumented decisions** — added ADR-009 (attach mode), ADR-010 (web control
+  panel over Tauri/Wails), ADR-011 (PyInstaller over a Go/Rust rewrite), ADR-012
+  (record-by-demonstration as the primary authoring path), ADR-013 (assert only
+  observed outcomes).
+- **CLAUDE.md / SCOPE.md** claimed Windows-first with macOS deferred; in reality macOS
+  was the primary dev and validation platform and all three OSes ship.
+- **FEATURE_SCANNER.md** marked NOT IMPLEMENTED / partly superseded by the recorder,
+  with the live findings folded in (no iframes on lp.p2p.me; Radix per-render ids make
+  CSS paths worthless there).
+All internal doc links resolve. 25 tests green.

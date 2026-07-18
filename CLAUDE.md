@@ -38,8 +38,11 @@ recipe that ships on the platform automates a merchant dashboard (P2P.me) — bu
    automates is their responsibility, exactly as with any automation tool. Do NOT
    bake any single use case (including P2P.me) into the core engine — it ships as an
    *example recipe*, cleanly separated.
-5. **Cross-platform from day one in design, Windows+Linux first in practice.**
-   macOS is phase 2 (permissions/notarization). Don't hardcode OS assumptions.
+5. **Cross-platform, all three shipping.** As of v0.1.x we build single-file binaries
+   for Windows, macOS and Linux in CI. Note the early docs assumed Windows-first —
+   in practice the engine was built and live-validated on **macOS** (FACT 5/6). Don't
+   hardcode OS assumptions. Outstanding OS-specific gaps: macOS needs Accessibility
+   permission for the global hotkey, and no build is code-signed/notarized yet.
 6. **Keep it honest and inspectable.** This is an open-source community project. Clean
    code, clear docs, MIT license. The human is openly using Claude to build it and is
    fine with that being visible in the repo.
@@ -72,7 +75,20 @@ real mouse, but targets the page directly so it works backgrounded/headless and 
 no virtual display.** Packaging this for non-coders, as a recipe platform, is the
 unoccupied gap this project fills. (See `docs/RESEARCH.md` and `docs/INNOVATION.md`.)
 
-## 4. FIRST SHORT-TERM GOAL (the current milestone)
+## 4. WHERE THE PROJECT ACTUALLY IS (updated 2026-07-19, v0.1.1)
+
+Phase 1 is **done** and Phase 2 is largely delivered. Shipped: the engine (trusted
+CDP input, resilient targeting, recipes, hotkey), a local **control panel GUI**, a
+**recorder** (demonstrate a task once → recipe, ADR-012), **`expect`** outcome
+verification (ADR-013), `--attach` (ADR-009), and one-file downloads for all three
+OSes (ADR-011). 25 tests green. FACTS 1-6 proven.
+
+**Still open:** minimized run on the *live* site specifically; a visual element
+picker; recipe gallery; code signing. See ROADMAP.
+
+The original milestone text is kept below for historical context.
+
+## 4b. ORIGINAL FIRST SHORT-TERM GOAL (historical)
 
 Build the **infrastructure tool (the platform)** + the **first recipe (P2P.me)**, get
 it running reliably on **Windows and Linux**, and debug it against the real target

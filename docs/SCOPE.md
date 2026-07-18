@@ -36,4 +36,6 @@ into the core.
 - Recipes: all site-specific logic lives here, as data/config, not engine code.
 - Targeting: resilient (text/role/selector), never fixed pixels in the engine.
 - Reliability: background-capable, restart-surviving, hotkey-toggle — first-class.
-- Cross-platform: Windows + Linux first; macOS later; Chromium-family only.
+- Cross-platform: Windows, macOS and Linux all ship as single-file binaries (v0.1.x).
+  Chromium-family only. (Early docs said 'Windows+Linux first, macOS later' — in
+  practice macOS was the primary development and validation platform.)

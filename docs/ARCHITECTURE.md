@@ -33,10 +33,12 @@ virtual display**. This is the project's core technical bet, and it is PROVEN
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                        DESKTOP APP (GUI)                        │
-│   - recipe list / editor / run-stop toggle / status            │
-│   - visual element picker (later phase)                        │
-│   - Tauri (Rust+web) or Wails (Go+web) shell  [phase 2+]       │
+│                    CONTROL PANEL (local web UI)                 │
+│   - recipe list / Start-Stop / live log / status dot           │
+│   - per-step tuning editor (delays, timeouts, poll)            │
+│   - RECORDER: demonstrate a task once -> recipe  (ADR-012)     │
+│   - stdlib http.server, opens in the browser  (ADR-010)        │
+│   - visual element picker: still open                          │
 └───────────────┬───────────────────────────────────────────────┘
                 │ calls
 ┌───────────────▼───────────────────────────────────────────────┐
@@ -48,6 +50,7 @@ virtual display**. This is the project's core technical bet, and it is PROVEN
 │     center coords  (resilient, no fixed pixels)                 │
 │   - motion: human-like move profiles (easing+jitter) [refine]   │
 │   - recipe runner: parse recipe → execute steps → loop → toggle │
+│   - fast path: resolve+stability+hit-test in ONE evaluate       │
 │   - hotkey listener: global start/stop (e.g. Esc/End)           │
 └───────────────┬───────────────────────────────────────────────┘
                 │ speaks CDP over WebSocket
@@ -90,7 +93,9 @@ A recipe is a human-readable file (JSON or YAML; JSON to start). Example shape:
 Design principles:
 - **Targets are resilient** (by visible text, ARIA role, stable selector — NOT fixed
   pixels). Multiple fallback strategies per target.
-- **Steps are explicit** (wait_for, click, swipe/drag, type, wait, loop, condition).
+- **Steps are explicit** (wait_for, click, swipe/drag, type, wait, loop, condition,
+  **expect**). `expect` asserts an OUTCOME (element present/absent) so a recipe can
+  report whether the task actually succeeded, not merely that a click fired.
 - **Human-readable & git-friendly** so recipes can be shared like Espanso configs.
 - **No use-case baked into the engine.** The engine just runs steps.
 
@@ -121,7 +126,10 @@ Design principles:
 
 ## 7. CROSS-PLATFORM
 
-- Windows + Linux first (both PoC-validated on Windows; Linux is the human's server
-  environment and CDP behaves the same).
-- macOS phase 2 (Accessibility permissions, notarization, code-signing).
+- **All three ship as of v0.1.x** (Windows / macOS / Linux single-file binaries built
+  in CI). Trusted-while-minimized is proven on Windows (FACT 2) and macOS (FACT 5).
+- macOS needs Accessibility permission for the global hotkey; downloads are not yet
+  code-signed/notarized on macOS or Windows.
+- Development and live validation actually happened on macOS, not Windows as the
+  early docs assumed.
 - Chromium-family only (CDP requirement).
