@@ -153,7 +153,15 @@ async def _record(args: argparse.Namespace) -> int:
         print("  RECORDING — do the task in the browser window.")
         print("  Every click is captured. Press Ctrl+C here when you're done.")
         print("=" * 60 + "\n", flush=True)
+        # Install real signal handlers: relying on KeyboardInterrupt propagating out
+        # of asyncio.run risks losing the whole recording before it is written.
         stop = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, stop.set)
+            except (NotImplementedError, RuntimeError):
+                pass
         try:
             await stop.wait()
         except (KeyboardInterrupt, asyncio.CancelledError):

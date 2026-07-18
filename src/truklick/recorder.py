@@ -88,7 +88,7 @@ _HOOK_JS = r"""
     const el = meaningful(e.target);
     if (!el || el.id === '__truklick_toast') return;
     const label = norm(el.getAttribute('aria-label') || el.innerText || el.value);
-    window.__truklickHit({
+    const info = {
       text: label.slice(0, 80),
       role: roleOf(el),
       id: junkId(el.id) ? null : el.id,
@@ -96,7 +96,15 @@ _HOOK_JS = r"""
       tag: el.nodeName.toLowerCase(),
       url: location.href,
       t: Date.now(),
-    });
+      vanished: null,
+    };
+    window.__truklickHit(info);
+    // Observe the OUTCOME rather than assuming it: did this element actually go
+    // away? Only then is 'expect absent' a true statement about the task.
+    setTimeout(() => {
+      const gone = !document.contains(el) || !el.getBoundingClientRect().width;
+      window.__truklickOutcome({ t: info.t, vanished: gone });
+    }, 900);
   }, true);
 }
 """
@@ -131,32 +139,51 @@ class Recorder:
             log.info("recorded #%d: %s %r", len(self.hits), hit.get("tag"),
                      (hit.get("text") or "")[:40])
 
+        async def on_outcome(_source, data):
+            for h in reversed(self.hits):
+                if h.get("t") == data.get("t"):
+                    h["vanished"] = bool(data.get("vanished"))
+                    break
+
         await self.page.expose_binding("__truklickHit", on_hit)
+        await self.page.expose_binding("__truklickOutcome", on_outcome)
         await self.page.add_init_script(f"({_HOOK_JS})()")
         await self.page.evaluate(f"({_HOOK_JS})()")
         log.info("Recording. Do the task in the browser; press Ctrl+C here when done.")
 
     def build(self, name: str, url: str, loop: bool = True) -> dict:
         steps: list[dict] = []
-        for i, hit in enumerate(self.hits):
+        fragile: list[str] = []
+        for hit in self.hits:
             target = _target_for(hit)
-            # A pause the user took is meaningful (waiting for something) — but we
-            # express it as a wait_for on the NEXT target, not a blind sleep, so it
-            # self-adjusts. Tunable delays are kept separately for the editor.
-            if self.keep_delays and i > 0 and hit["gap_ms"] > 1500:
-                steps.append({"action": "wait", "ms": min(hit["gap_ms"], 5000),
-                              "_note": "recorded pause — tune or delete"})
-            steps.append({"action": "wait_for", "target": target,
-                          "timeout_ms": 30000, "poll_ms": 25})
+            # No blind sleeps: wait_for already waits for the real thing, and a fixed
+            # sleep only makes the recipe slower and more brittle. The observed gap is
+            # kept as metadata so it can be re-added in the Tune panel if wanted.
+            wf = {"action": "wait_for", "target": target,
+                  "timeout_ms": 30000, "poll_ms": 25}
+            if hit.get("gap_ms"):
+                wf["_recorded_gap_ms"] = hit["gap_ms"]
+            if "selector" in target:
+                # Fell back to a raw CSS path — on utility-class frameworks these
+                # break on any restyle. Never let that be silent.
+                fragile.append(target["selector"])
+                wf["_FRAGILE"] = ("No text or ARIA name on this element, so only a CSS "
+                                  "path was available. This WILL break if the page is "
+                                  "restyled — give the element a stable label or "
+                                  "replace this target by hand.")
+            steps.append(wf)
             steps.append({"action": "click", "target": target})
-        if steps:
-            last = steps[-1]["target"]
-            steps.append({"action": "expect", "target": last, "present": False,
-                          "timeout_ms": 10000,
+
+        # Only assert an outcome we actually OBSERVED. Auto-asserting that the last
+        # element disappears is wrong for navigation clicks and makes the recipe fail
+        # on every run.
+        if self.hits and self.hits[-1].get("vanished"):
+            steps.append({"action": "expect", "target": _target_for(self.hits[-1]),
+                          "present": False, "timeout_ms": 10000, "poll_ms": 100,
                           "name": "last action had an effect",
-                          "_note": "verifies the OUTCOME, not just the click. Change "
-                                   "or delete if the element is meant to stay."})
-        return {
+                          "_note": "Added because this element was OBSERVED to "
+                                   "disappear after you clicked it during recording."})
+        out = {
             "_comment": f"Recorded by Truklick from {len(self.hits)} action(s). "
                         "Each click became wait_for + click so it survives slow "
                         "loads. Tune timings in the control panel.",
@@ -168,6 +195,12 @@ class Recorder:
             "loop_delay_ms": 100,
             "steps": steps,
         }
+        if fragile:
+            out["_WARNING_fragile_targets"] = (
+                f"{len(fragile)} step(s) had to fall back to a raw CSS path because the "
+                "element has no visible text or aria-label. Those are the first things "
+                "that will break when the site is restyled — review them.")
+        return out
 
     def save(self, path: Path, name: str, url: str, loop: bool = True) -> Path:
         path = Path(path)

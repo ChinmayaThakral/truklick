@@ -405,3 +405,18 @@ pause/resume ✅ (verified live), trusted+minimized proven on Windows and macOS
 2. Test the recorder against a real messy site (only synthetic pages so far).
 3. Visual element picker (CDP-injected, per FEATURE_SCANNER.md — not an extension).
 4. Recipe gallery once recipes are easy to make.
+
+**Recorder tested against the LIVE lp.p2p.me site (post-v0.1.0).** Recorded 5 real
+clicks. What held: no Radix/generated ids leaked, no nth-of-type paths, and the Close
+button was captured as `role=button name="Close" exact` — *identical to the target we
+reverse-engineered by hand in Session 3*. Three real defects found and fixed:
+1. **Auto-`expect` was wrong.** It asserted the last-clicked element disappears — true
+   for a dismiss, false for a nav click, so recorded recipes failed every run. Now the
+   recorder OBSERVES (900ms after each click) whether the element actually vanished and
+   only emits `expect` when it did.
+2. **Silent fragile fallback.** An icon button with no text/aria-label fell back to a
+   raw Tailwind CSS path with no warning. Now flagged per-step (`_FRAGILE`) and at the
+   top of the recipe (`_WARNING_fragile_targets`).
+3. **Blind `wait` sleeps** from recorded pauses — removed; `wait_for` already waits on
+   the real condition. Observed gaps kept as `_recorded_gap_ms` metadata for tuning.
+Locked in by `tests/test_recorder.py` (25 tests green).
