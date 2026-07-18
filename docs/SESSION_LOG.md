@@ -521,3 +521,29 @@ compare the win rate. `expect` makes that measurable rather than a guess.
 :9222 freed), `captures/` deleted (contained balance, bank names, account fragment and
 order IDs in plaintext), build artifacts and temp files removed. Browser profiles kept
 (they hold logins). Repo clean and pushed.
+
+**Sub-10ms pass.** Asked whether we could get under 10ms. Two changes, both measured:
+1. **Animation-aware stability.** The frame wait was a heuristic — sample twice and
+   guess whether the element is moving. The browser can just be asked:
+   `document.getAnimations()` reports what is actually running on the element or an
+   ancestor. If nothing is animating, no frame wait is needed at all. Conservative on
+   error (if we cannot tell, we wait). 23.8ms -> 11.7ms median, min 5.5ms, and it is
+   *more* correct than sampling, not less — a CSS animation is still detected and the
+   slow-drift case still refuses.
+2. **Poll interval.** Measured the real tradeoff on this machine:
+
+   | poll_ms | appear->click | probes/sec | CPU |
+   |---|---|---|---|
+   | 10 | 15.0 ms | 74 | 9.7% |
+   | 5  | 10.9 ms | 128 | 15.0% |
+   | 2  | 6.2 ms | 254 | 23.9% |
+   | 0  | 3.0 ms | 1314 | 49.7% |
+
+   Set the P2P recipe to `poll_ms=2` (~6ms, sub-10ms as asked).
+
+**Important context, recorded so nobody optimises this further by reflex:** local
+latency is now far below the network round-trip to the site. Going 15ms -> 3ms costs
+5x the CPU for a gain that is almost certainly invisible against server RTT. **The
+bottleneck has moved off this machine.** If order win-rate is the goal, the next
+useful measurement is win-rate at poll=2 vs poll=10 over many orders — not more
+micro-optimisation.

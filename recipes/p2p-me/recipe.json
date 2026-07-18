@@ -8,7 +8,7 @@
   "url": "https://lp.p2p.me",
   "hotkey": "Escape",
   "loop": true,
-  "loop_delay_ms": 10,
+  "loop_delay_ms": 2,
   "steps": [
     {
       "action": "wait_for",
@@ -17,7 +17,7 @@
         "exact": true
       },
       "timeout_ms": 60000,
-      "poll_ms": 10,
+      "poll_ms": 2,
       "_note": "Waits for the next order popup, re-checking every 10ms. Times out after 60s only to re-arm the loop — it keeps waiting forever."
     },
     {
@@ -36,7 +36,7 @@
         "exact": true
       },
       "timeout_ms": 40000,
-      "poll_ms": 10,
+      "poll_ms": 2,
       "_note": "Home-screen Accept appears after Close (~1s live). role=button + exact name so it can never match 'Slide to Accept'."
     },
     {
@@ -57,9 +57,10 @@
       },
       "present": false,
       "timeout_ms": 8000,
-      "poll_ms": 100,
+      "poll_ms": 2,
       "name": "order accepted (Accept button gone)",
       "_note": "Verifies the OUTCOME, not just that we clicked. If Accept is still there we did not win the order."
     }
-  ]
+  ],
+  "_speed": "poll_ms=2 gives ~6ms from an element appearing to the click landing (measured), at ~24% of one CPU core while waiting. Tradeoff measured on this machine: poll 10 = 15.0ms/9.7% CPU, 5 = 10.9ms/15%, 2 = 6.2ms/24%, 0 = 3.0ms/50%. NOTE: local latency is now far below network round-trip to the site, so shaving further is unlikely to win more orders — the bottleneck has moved off this machine. Raise poll_ms if you want the CPU back."
 }

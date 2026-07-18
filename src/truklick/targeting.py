@@ -170,15 +170,28 @@ async ([spec]) => {
             cx: r.x + r.width / 2, cy: r.y + r.height / 2, detect: true};
   }
 
-  // stability: same box across two animation frames (catches slide-in dialogs)
-  let a = el.getBoundingClientRect();
-  await raf();
-  el = pick();
-  if (!el) return null;
+  // Is anything actually animating this element (or an ancestor that carries it)?
+  // Asking the browser beats sampling: a frame wait is only needed when something
+  // is genuinely in motion. Conservative on error — if we cannot tell, we wait.
+  let inMotion = true;
+  try {
+    inMotion = document.getAnimations().some(a =>
+      a.playState === 'running' && a.effect && a.effect.target &&
+      (a.effect.target === el || a.effect.target.contains(el)));
+  } catch (e) { inMotion = true; }
+
   let b = el.getBoundingClientRect();
-  const moved = Math.abs(a.x - b.x) > 0.5 || Math.abs(a.y - b.y) > 0.5 ||
-                Math.abs(a.width - b.width) > 0.5 || Math.abs(a.height - b.height) > 0.5;
-  if (moved) return {moving: true};
+  if (inMotion) {
+    // moving: fall back to sampling across a frame, and refuse if still shifting
+    const a0 = b;
+    await raf();
+    el = pick();
+    if (!el) return null;
+    b = el.getBoundingClientRect();
+    const moved = Math.abs(a0.x - b.x) > 0.5 || Math.abs(a0.y - b.y) > 0.5 ||
+                  Math.abs(a0.width - b.width) > 0.5 || Math.abs(a0.height - b.height) > 0.5;
+    if (moved) return {moving: true};
+  }
 
   const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
   const at = document.elementFromPoint(cx, cy);
