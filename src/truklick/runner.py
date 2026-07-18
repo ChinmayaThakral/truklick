@@ -39,6 +39,7 @@ class RecipeRunner:
         self.config = config or RunnerConfig()
         self.page: Optional[Page] = None
         self.input: Optional[Input] = None
+        self._clicks_this_pass = 0          # for half-done-pass detection
         self._active = asyncio.Event()      # set = executing steps
         self._shutdown = asyncio.Event()    # set = tear down and exit
 
@@ -132,7 +133,17 @@ class RecipeRunner:
 
     async def _run_pass(self) -> None:
         """Execute the recipe's top-level steps once."""
-        await self._exec_steps(self.recipe.steps)
+        self._clicks_this_pass = 0
+        ok = await self._exec_steps(self.recipe.steps)
+        if not ok and self._clicks_this_pass > 0 and not self._shutdown.is_set():
+            # Half-done pass: we already changed the page, then a later step failed.
+            # Seen live on lp.p2p.me: Close was clicked, then Accept never appeared —
+            # the popup was dismissed and the order left unaccepted. Never let that
+            # pass silently.
+            log.warning(
+                "PASS ABORTED AFTER %d CLICK(S) — the page was already changed but "
+                "the recipe did not finish. Check this one manually.",
+                self._clicks_this_pass)
 
     async def _exec_steps(self, steps: list[Step]) -> bool:
         """Run a list of steps. Returns False if interrupted (paused/shutdown)."""
@@ -182,6 +193,7 @@ class RecipeRunner:
                 log.info("clicking %r via %s in %s", step.target, hit.strategy,
                          hit.where)
                 await self.input.click(hit.cx, hit.cy)
+                self._clicks_this_pass += 1
                 return True
 
             if action == "type":

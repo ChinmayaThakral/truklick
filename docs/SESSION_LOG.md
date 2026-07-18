@@ -286,3 +286,60 @@ that reproduces the real popup/home structure and asserts Accept resolves to the
 3. Only after that, run the full recipe (Close + Accept) end to end = Phase 1 exit.
 4. Grant macOS Accessibility permission first, or the Escape toggle is dead (the engine
    now warns honestly instead of claiming "armed").
+
+---
+
+## SESSION 4 — First real end-to-end run on the live site (2026-07-19)
+
+**MILESTONE: FACT 6.** The engine ran `recipes/p2p-me/recipe.json` unattended against
+the live logged-in lp.p2p.me session (via `--attach`) and performed the full sequence:
+detect popup → trusted click **Close** → wait for home **Accept** → trusted click
+**Accept**. Author confirmed visually. This is the platform doing the real job from a
+recipe, not a PoC script.
+
+**How the earlier mis-click was diagnosed and fixed:**
+- First live run (--once): Close landed, Accept did not. Evidence: `role` found 0
+  matches (the real home button did not exist yet) and the Accept target ALSO carried
+  a loose `text` fallback, which matched something in the still-dismissing popup and
+  clicked it. The "safety" fallback caused the bug.
+- Fix: Accept target requires `role=button` + exact name, **no text fallback** — so
+  wait_for keeps polling for a genuine button instead of clicking a wrong element.
+  Confirmed live: `clicking {'role':'button','name':'Accept'} via role`.
+
+**A hypothesis I got WRONG (recorded so nobody repeats it):** I first assumed the
+mis-click was a stale-coordinate race (box read while the dialog animated). A direct
+old-vs-new comparison disproved it — the old code clicks correctly on both a smooth
+animation and a hard reflow. The test docstring was corrected rather than left
+implying a repro it does not have. The occlusion guard that came out of that work IS
+a proven improvement (old `find()` returned a point that clicked an overlay;
+`find_click_point()` refuses).
+
+**RELIABILITY — 1 of 2 cycles FAILED. This is the top open issue:**
+- Cycle 1 (00:30:49): Close clicked → Accept never appeared in 15s → order dismissed
+  and left UNACCEPTED.
+- Cycle 2 (00:33:37): Close → Accept 1s later, both correct. ✅
+- Root cause of cycle 1 unknown. Mitigations: Accept timeout 15s → 40s; runner now
+  logs `PASS ABORTED AFTER N CLICK(S)` when a pass dies after clicking, so a
+  half-done order is never silent.
+
+**Engine/tooling added this session:** `--attach CDP_URL` (drive an already-open
+logged-in browser; never navigates, never closes the user's browser, watchdog
+disabled), `scripts/open_dashboard.py`, `scripts/capture_now.py`,
+`scripts/probe_targets.py` (read-only diagnosis), `targeting.find_click_point()`.
+
+**PHASE 1 EXIT CRITERIA — still NOT fully met:**
+- [x] Run a recipe against the real site end to end
+- [ ] **MINIMIZED on the real site** — never tested (FACT 2/5 cover the engine/OS
+      property only)
+- [ ] **Hotkey toggle** — dead on this Mac; macOS Accessibility permission never
+      granted, so the author has no manual brake and the operator (assistant) is the
+      only stop button
+
+**NEXT SESSION SHOULD:**
+1. Grant macOS Accessibility permission → verify `Hotkey 'Escape' armed` → test
+   pause/resume mid-loop. Without this the toggle workflow does not exist.
+2. Run the recipe minimized on the real site → that is the last Phase-1 checkbox.
+3. Investigate cycle-1 failure: when an order is closed but Accept never appears,
+   determine whether the order is lost, and consider not clicking Close until Accept
+   is confidently reachable.
+4. Gather reliability data across more orders before trusting it unattended.

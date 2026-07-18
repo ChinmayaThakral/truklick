@@ -73,6 +73,29 @@
 - **Still open:** the real *lp.p2p.me* minimized run (on the author's Windows box) is
   the product-level Phase-1 gate; this fact covers the engine/OS property only.
 
+## FACT 6 — The ENGINE drives the real target end-to-end from a recipe
+- **Claim:** Truklick's engine, running a recipe unattended, performs the full
+  real-world sequence on the live logged-in site: detect the order popup → trusted
+  click **Close** → wait for the home-screen **Accept** → trusted click **Accept**.
+  Not a PoC script — the actual engine + recipe + CLI.
+- **Proof:** 2026-07-19, `truklick run recipes/p2p-me/recipe.json --attach ...`
+  against the live lp.p2p.me session. Log:
+  `00:33:37 clicking {'text':'Close'} via text` → `00:33:38 clicking
+  {'role':'button','name':'Accept','exact':True} via role`. The author watched it
+  happen and confirmed: *"yes i saw it clicking accept on the second one."*
+- **Why it matters:** closes the loop from PROVEN_FACTS 1–4 (trusted input works) to
+  "the platform actually automates a real task from a shareable recipe."
+- **Status:** ✅ PROVEN on macOS against live lp.p2p.me, [date: 2026-07-19].
+- **IMPORTANT RELIABILITY CAVEAT — do not read this as "it works reliably":**
+  In the same run, **1 of 2 order cycles FAILED**. On the first cycle Close was
+  clicked and the Accept button then never appeared for 15s of continuous polling,
+  so the popup was dismissed and the order left **unaccepted**. Root cause unknown
+  (either that order's Accept genuinely never rendered, or it rendered in a form
+  `role=button` could not see). Mitigations added: Accept timeout raised to 40s, and
+  the runner now logs `PASS ABORTED AFTER N CLICK(S)` whenever a pass dies after
+  already clicking, so a half-done order is never silent. **Not yet proven:
+  reliability across many orders, and the real-site MINIMIZED run.**
+
 ---
 
 ## KNOWN CAVEATS (verified, not yet blockers)
