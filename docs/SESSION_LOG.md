@@ -220,3 +220,69 @@ step (documented in the recipe's `_mode`).
    behavior, animation delay, whether Close appears without an order).
 
 **No PROVEN_FACTS changed. Reminders unchanged (raw CDP, P2P stays a recipe, pin 3.12).**
+
+---
+
+## SESSION 3 — Live DOM captured; real recipe written (2026-07-19)
+
+**Done on the Mac** (macOS turned out to be fully viable — the "Windows box" framing in
+earlier sessions was inherited assumption, not a technical requirement; FACT 5 covers
+minimized on macOS).
+
+**New tooling:** `scripts/open_dashboard.py` (persistent Chromium with CDP on :9222,
+stays alive) + `scripts/capture_now.py` (attaches over CDP and captures the current
+screen with zero interaction). This meant captures could be taken the instant an order
+popup appeared, with no terminal juggling.
+
+**CAPTURED FROM THE LIVE SITE (order 625945, a SELL order):**
+- **Close** — in a Radix dialog. `<div>` (400x48 @ 440,640) wrapping a `<p>Close</p>`.
+  With the popup open, exactly 2 elements contain "Close" and both are that control.
+- **Accept** — on the HOME screen after Close, a REAL `<button>` (311x36 @ 726,819).
+  Exactly 1 element contains "Accept" on the home screen. Confirmed absent on a clean
+  home screen (76 elements) and present after closing an order — i.e. it only exists
+  while an order is pending.
+
+**KEY STRUCTURAL FINDINGS (these drove the targeting decisions):**
+1. **No iframes anywhere** — every element is `frame=main`. (Also answers the open
+   question the Phase-2 scanner spec was designed around.)
+2. **React + Tailwind, no ids.** Every button has `id=''`; classes are utility classes;
+   CSS paths are deep `nth-of-type` chains.
+3. **The popup is a Radix dialog with a per-render generated id** (`div#radix-«rj»`).
+   EVERY captured CSS selector inside the popup is anchored to it and WILL break on the
+   next popup. → CSS fallbacks were deliberately OMITTED from the recipe: a stale
+   selector matching the wrong control on a financial dashboard is worse than none.
+4. **Text/role is the most stable strategy on this site** — the inverse of the usual
+   advice (and of the guidance in docs/FEATURE_SCANNER.md's reviewer notes, which is
+   correct in general but not here). Captured evidence beat the assumption.
+5. **Ambiguity trap:** while the popup is open, the substring "Accept" also appears in
+   "Slide to Accept" and "Accept to view UPI ID" (both non-buttons). Loose text
+   targeting could hit the slider. → Accept uses `role=button` + exact name.
+
+**Engine change:** `targeting.py` now honours an `exact` flag for role/name matching
+(Playwright matches accessible name as a case-insensitive substring by default).
+
+**Recipe:** `recipes/p2p-me/recipe.json` filled with the real targets —
+wait_for Close(exact) → click Close → wait_for Accept(role=button, exact) → click
+Accept → loop. Rationale documented inline so nobody "improves" it back to CSS.
+
+**Tests:** 15 green, incl. new `tests/test_targeting_disambiguation.py` using a fixture
+that reproduces the real popup/home structure and asserts Accept resolves to the real
+`<button>` and NOT the slider.
+
+**HONEST GAP — the recipe is NOT yet verified end to end:**
+- The Accept target was verified against the captured DOM and a fixture, but **never
+  against the live Accept button** — it disappeared (order handled) before a live
+  resolve could be run. Live-resolve of both targets currently returns "not present"
+  simply because no order is pending.
+- No trusted click has yet been fired by the ENGINE at the real site. The Close click
+  in this session was done by the human, by hand.
+
+**NEXT SESSION (on the next live order):**
+1. While the popup is open, run a live `targeting.find` for both targets and confirm
+   they resolve (read-only, no clicks).
+2. Then let the ENGINE fire the trusted click at **Close only** (non-committing) —
+   deferred this session deliberately rather than experimenting on a live order under
+   time pressure. Confirm it works, including MINIMIZED.
+3. Only after that, run the full recipe (Close + Accept) end to end = Phase 1 exit.
+4. Grant macOS Accessibility permission first, or the Escape toggle is dead (the engine
+   now warns honestly instead of claiming "armed").

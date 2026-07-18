@@ -47,6 +47,11 @@ def _locators_for(frame: Frame, target: dict) -> list[tuple[str, Locator]]:
         kwargs = {}
         if target.get("name"):
             kwargs["name"] = target["name"]
+            # Playwright matches accessible name as a case-insensitive SUBSTRING by
+            # default, so name="Accept" would also match "Slide to Accept". Honour an
+            # explicit exact flag to keep targets unambiguous.
+            if target.get("exact"):
+                kwargs["exact"] = True
         out.append(("role", frame.get_by_role(target["role"], **kwargs).first))
     if target.get("text"):
         exact = bool(target.get("exact", False))

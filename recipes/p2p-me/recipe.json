@@ -1,11 +1,11 @@
 {
-  "_comment": "FIRST EXAMPLE RECIPE — SKELETON (user content, ADR-006). CONFIRMED flow (Session 2): the script does ONLY two things per order — click Close on the popup, then click the clean Accept button that appears on the home screen. Everything else (the actual buy/sell payment: verifying money received, or sending money) the author does MANUALLY on their phone. Targets below are PLACEHOLDERS — fill from a capture (docs/CAPTURE_GUIDE.md + scripts/capture_helper.py).",
+  "_comment": "FIRST REAL RECIPE (user content, ADR-006). Targets captured from the LIVE lp.p2p.me site on 2026-07-19 (order 625945) via scripts/capture_now.py. Flow: order popup shows Close -> click Close -> the order maps to the HOME screen as a clean Accept button -> click Accept. The script does ONLY these two clicks; all payment/verification is manual on the phone.",
 
-  "_workflow": "Author's real loop: the phone rings 3x per order (1 assigned / 2 accepted / 3 action-needed). The script auto-Closes + auto-Accepts fast and non-stop. On the 3rd ring the author TOGGLES THE SCRIPT OFF (presses the hotkey), handles that one order on the phone (~6-7 min: swipe/verify for a buy order where money was received, or send money for a sell order), then TOGGLES BACK ON. Pausing while handling an order is what keeps the script from accepting MORE orders than the author can work one at a time — the toggle is the whole point.",
+  "_workflow": "Author's real loop: the phone rings 3x per order (1 assigned / 2 accepted / 3 action-needed). The script auto-Closes + auto-Accepts fast and non-stop. On the 3rd ring the author TOGGLES THE SCRIPT OFF (hotkey), handles that one order on the phone (~6-7 min: verify a buy where money arrived, or send money for a sell), then TOGGLES BACK ON. The toggle-pause is what keeps the script from accepting more orders than can be worked one at a time.",
 
-  "_mode": "AUTO-ACCEPT, fast. No inter-click delays (author wants it ultrafast); wait_for still guards each click so we never click a not-yet-rendered element. Revert to close-only = delete the final 'click Accept' step.",
+  "_targeting_notes": "WHY TEXT/ROLE AND NOT CSS SELECTORS (learned from the capture, do not 'improve' this): lp.p2p.me is React + Tailwind. Buttons have NO ids, only utility classes, and deep nth-of-type paths. Worse, the order popup is a Radix dialog whose container id is generated per-render (e.g. div#radix-«rj») — every CSS path inside the popup is anchored to it and WILL break on the next popup. So CSS fallbacks are deliberately omitted: a stale selector that matches the WRONG control on a financial dashboard is more dangerous than no fallback. Text/role were verified UNIQUE in the captures.",
 
-  "_placeholders_todo": "Replace text:'Close' and text:'Accept' with the real targets from capture (add css_selector/xpath; note the frame — main vs iframe). If a bare 'Close' can appear on non-order modals, make it more specific so the script only closes real order popups.",
+  "_uniqueness_verified": "With the popup open, exactly 2 elements contain 'Close' and both are the same button (div wrapper + its <p> label) — unambiguous. On the home screen after closing, exactly 1 element contains 'Accept' and it is a real <button>. NOTE: while the popup is open, 'Accept' as SUBSTRING also appears in 'Slide to Accept' and 'Accept to view UPI ID' — which is why the Accept target uses role=button + exact name, so it can never match those non-button texts.",
 
   "name": "P2P.me — auto accept & close",
   "match_url": "https://lp.p2p.me/*",
@@ -17,28 +17,25 @@
   "steps": [
     {
       "action": "wait_for",
-      "target": { "text": "Close", "fallback_selector": null },
+      "target": { "text": "Close", "exact": true },
       "timeout_ms": 60000,
-      "_note": "Waits for the next order popup (up to 60s, then the loop re-arms and keeps waiting). Pausing here via the hotkey is the clean toggle-off point.",
-      "_TODO": "real Close selector from capture"
+      "_note": "Waits for the next order popup (Radix dialog). Pausing here via the hotkey is the clean toggle-off point."
     },
     {
       "action": "click",
-      "target": { "text": "Close" },
-      "_TODO": "real Close selector from capture"
+      "target": { "text": "Close", "exact": true },
+      "_note": "Dismisses the popup. Non-committing. Captured rect was 400x48 at (440,640); we target by text, never coords."
     },
     {
       "action": "wait_for",
-      "target": { "text": "Accept", "fallback_selector": null },
+      "target": { "role": "button", "name": "Accept", "exact": true, "text": "Accept" },
       "timeout_ms": 15000,
-      "_note": "Home-screen Accept appears after Close (may animate in); wait_for it rather than a fixed sleep, so it's as fast as the site allows without clicking too early.",
-      "_TODO": "real Accept selector from capture (clean home-screen button, not a slider)"
+      "_note": "Home-screen Accept appears only when an order is pending. role=button+exact avoids matching 'Slide to Accept'/'Accept to view UPI ID'. Falls back to exact text if role lookup fails."
     },
     {
       "action": "click",
-      "target": { "text": "Accept" },
-      "_TODO": "real Accept selector from capture. THIS is the auto-accept step — delete it to revert to close-only.",
-      "_note": "Fires the trusted click on Accept, then the loop restarts and waits for the next order popup."
+      "target": { "role": "button", "name": "Accept", "exact": true, "text": "Accept" },
+      "_note": "THIS is the auto-accept step — delete it to revert to close-only (script would then just dismiss popups and leave Accept for you to tap)."
     }
   ]
 }
