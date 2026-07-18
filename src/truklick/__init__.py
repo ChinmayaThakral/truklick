@@ -8,4 +8,4 @@ runs user-authored recipes. No single site's logic lives in this package.
 Grounded in docs/PROVEN_FACTS.md. Do not contradict a fact there without a new proof.
 """
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
