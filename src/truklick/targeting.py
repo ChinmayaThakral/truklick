@@ -87,6 +87,9 @@ async def find(page: Page, target: dict, require_visible: bool = True) -> Option
                 box = await locator.bounding_box()
                 if not box or box["width"] <= 0 or box["height"] <= 0:
                     continue
+                min_w = target.get("min_width")
+                if min_w and box["width"] < float(min_w):
+                    continue  # narrow inner label, not the wide track we want
                 hit = Hit(
                     cx=box["x"] + box["width"] / 2,
                     cy=box["y"] + box["height"] / 2,
@@ -135,11 +138,13 @@ async ([spec]) => {
       return el && visible(el) ? el : null;
     }
     if (spec.role) {
+      const minW = spec.minWidth || 0;
       const sel = spec.role === 'button' ? 'button,[role="button"]'
                 : spec.role === 'link'   ? 'a,[role="link"]'
                 : '[role="' + spec.role + '"]';
       for (const el of document.querySelectorAll(sel)) {
         if (!visible(el)) continue;
+        if (minW && el.getBoundingClientRect().width < minW) continue;
         const name = norm(el.getAttribute('aria-label') || el.innerText || el.textContent);
         if (spec.name == null) return el;
         if (spec.exact ? name === spec.name : name.includes(spec.name)) return el;
@@ -147,13 +152,19 @@ async ([spec]) => {
       return null;
     }
     if (spec.text != null) {
-      // deepest element whose own text matches, so we land on the label not a wrapper
+      // deepest element whose own text matches, so we land on the label not a
+      // wrapper. minWidth flips that for slide/drag tracks: the matching text
+      // also appears on a narrow inner label (e.g. a 105px <p> inside a 400px
+      // slide track); minWidth keeps only elements at least that wide, so we
+      // land on the track we must drag, not its label leaf.
+      const minW = spec.minWidth || 0;
       let best = null;
       for (const el of document.querySelectorAll('*')) {
         if (!visible(el)) continue;
         const t = norm(el.innerText || el.textContent);
         const hit = spec.exact ? t === spec.text : t.includes(spec.text);
         if (!hit) continue;
+        if (minW && el.getBoundingClientRect().width < minW) continue;
         if (!best || best.contains(el)) best = el;
       }
       return best;
@@ -211,11 +222,13 @@ def _fast_spec(target: dict) -> Optional[dict]:
         return None  # multi-strategy fallbacks stay on the general path
     if target.get("selector"):
         return {"selector": target["selector"]}
+    mw = target.get("min_width")
     if target.get("role"):
         return {"role": target["role"], "name": target.get("name"),
-                "exact": bool(target.get("exact"))}
+                "exact": bool(target.get("exact")), "minWidth": mw}
     if target.get("text") is not None:
-        return {"text": target["text"], "exact": bool(target.get("exact"))}
+        return {"text": target["text"], "exact": bool(target.get("exact")),
+                "minWidth": mw}
     return None
 
 

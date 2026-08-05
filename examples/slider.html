@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Truklick slide-to-confirm self-test</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 40px; }
+  /* position:fixed so offsetParent === null — a modal-like element. The finder
+     must judge visibility via getComputedStyle, NOT offsetParent. */
+  .track {
+    position: fixed; left: 200px; width: 400px; height: 56px;
+    border-radius: 28px; background: #eee; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; user-select: none;
+  }
+  #accept { top: 120px; }
+  #complete { top: 220px; }
+  .label { width: 105px; text-align: center; pointer-events: none; }
+  .knob { position: absolute; left: 4px; width: 48px; height: 48px;
+          border-radius: 50%; background: #2ea043; }
+</style>
+</head>
+<body>
+  <h1>Slide-to-confirm self-test</h1>
+  <p>Two slide tracks. A trusted drag across "Slide to Accept" must fire accept
+     and leave complete untouched.</p>
+
+  <div id="accept" class="track"><span class="knob"></span><p class="label">Slide to Accept</p></div>
+  <div id="complete" class="track"><span class="knob"></span><p class="label">Slide to Complete</p></div>
+
+  <script>
+    // Record a real slide: mousedown on the track, then a mouseup at least
+    // THRESHOLD px to the right. Captures isTrusted so the test proves the CDP
+    // drag lands as genuine input, exactly like PROVEN_FACTS FACT 1.
+    const THRESHOLD = 250;
+    function wire(id, key) {
+      const el = document.getElementById(id);
+      let startX = null;
+      el.addEventListener('mousedown', (e) => { startX = e.clientX; });
+      window.addEventListener('mouseup', (e) => {
+        if (startX === null) return;
+        const dx = e.clientX - startX;
+        startX = null;
+        if (dx > THRESHOLD) {
+          window[key] = { done: true, dx: dx, isTrusted: e.isTrusted };
+        }
+      });
+    }
+    wire('accept', '__accept');
+    wire('complete', '__complete');
+  </script>
+</body>
+</html>

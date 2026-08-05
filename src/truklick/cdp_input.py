@@ -106,12 +106,23 @@ class Input:
                           click_count=click_count, buttons=0)
 
     async def drag(self, x1: float, y1: float, x2: float, y2: float,
-                   steps: int = 20, button: str = "left") -> None:
+                   steps: int = 20, button: str = "left",
+                   step_delay_s: Optional[float] = None,
+                   hold_ms: float = 0.0) -> None:
         """Swipe/drag: mousePressed at start -> stepped mouseMoved -> mouseReleased.
 
         Used for slide-to-confirm style controls. Steps are eased when motion is
-        enabled, otherwise linear. Raw CDP throughout (ADR-002)."""
-        log.info("drag (%.0f, %.0f) -> (%.0f, %.0f) steps=%d", x1, y1, x2, y2, steps)
+        enabled, otherwise linear. Raw CDP throughout (ADR-002).
+
+        `hold_ms` keeps the button pressed AT the end point for a moment before
+        releasing (a few extra mouseMoved at the destination). Slide-to-confirm
+        widgets watch for realistic motion that dwells at the end; releasing the
+        instant the last move lands can read as a jump and not register. `hold_ms`
+        is generic (any slide control benefits) — no site logic here (ADR-006).
+        `step_delay_s` overrides the per-move pacing when motion is off."""
+        log.info("drag (%.0f, %.0f) -> (%.0f, %.0f) steps=%d hold=%.0fms",
+                 x1, y1, x2, y2, steps, hold_ms)
+        per_step = 0.008 if step_delay_s is None else step_delay_s
         await self._mouse("mousePressed", x1, y1, button=button,
                           click_count=1, buttons=1)
         if self.motion.enabled:
@@ -128,7 +139,12 @@ class Input:
         for (px, py) in pts:
             await self._mouse("mouseMoved", px, py, buttons=1)
             await asyncio.sleep(step_delay(self.motion, self._rng)
-                                if self.motion.enabled else 0.008)
+                                if self.motion.enabled else per_step)
+        if hold_ms > 0:
+            holds = 5
+            for _ in range(holds):
+                await self._mouse("mouseMoved", x2, y2, buttons=1)
+                await asyncio.sleep((hold_ms / 1000) / holds)
         await self._mouse("mouseReleased", x2, y2, button=button,
                           click_count=1, buttons=0)
 

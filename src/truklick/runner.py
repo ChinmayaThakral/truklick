@@ -326,21 +326,40 @@ class RecipeRunner:
             return True  # keep the loop alive; next pass may recover
 
     async def _exec_swipe(self, step: Step) -> bool:
-        """Slide/drag. Either explicit from/to {x,y}, or across a target's box."""
+        """Slide/drag. Either explicit from/to {x,y}, or across a target's box.
+
+        For slide-to-confirm controls: hold_ms dwells at the end before releasing,
+        step_delay_ms paces the moves, and start/end pads keep the grab off the
+        exact edges. Pads default symmetric (edge_pad) but can be set apart via
+        start_pad/end_pad — a knob usually sits slightly inside the left edge and
+        must be dragged just short of the right."""
         assert self.page is not None and self.input is not None
+        # 'drag_steps', not 'steps': 'steps' is reserved for nested step lists.
+        steps_n = int(step.raw.get("drag_steps", 20))
+        hold_ms = float(step.raw.get("hold_ms", 0))
+        step_delay = step.raw.get("step_delay_ms")
+        step_delay_s = None if step_delay is None else float(step_delay) / 1000.0
         frm, to = step.raw.get("from"), step.raw.get("to")
-        steps_n = int(step.raw.get("steps", 20))
         if frm and to:
-            await self.input.drag(frm["x"], frm["y"], to["x"], to["y"], steps=steps_n)
+            await self.input.drag(frm["x"], frm["y"], to["x"], to["y"],
+                                  steps=steps_n, step_delay_s=step_delay_s,
+                                  hold_ms=hold_ms)
             return True
-        # target-based: slide from left-center to right-center (slide-to-confirm)
-        hit = await targeting.find(self.page, step.target)
+        # target-based: slide from left-center to right-center (slide-to-confirm).
+        # find_click_point honours min_width (fast path), so we grab the wide track
+        # rather than a narrow inner label — the drag must span the whole track.
+        hit = await targeting.find_click_point(self.page, step.target)
+        if hit is None:
+            hit = await targeting.find(self.page, step.target)
         if hit is None:
             log.warning("swipe target not found: %s", step.target)
             return False
-        pad = float(step.raw.get("edge_pad", 6))
-        x1 = hit.x + pad
-        x2 = hit.x + hit.width - pad
+        edge_pad = float(step.raw.get("edge_pad", 6))
+        start_pad = float(step.raw.get("start_pad", edge_pad))
+        end_pad = float(step.raw.get("end_pad", edge_pad))
+        x1 = hit.x + start_pad
+        x2 = hit.x + hit.width - end_pad
         y = hit.cy
-        await self.input.drag(x1, y, x2, y, steps=steps_n)
+        await self.input.drag(x1, y, x2, y, steps=steps_n,
+                              step_delay_s=step_delay_s, hold_ms=hold_ms)
         return True
