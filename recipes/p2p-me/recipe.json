@@ -1,66 +1,76 @@
 {
-  "_comment": "P2P.me — auto Close + Accept. Runs forever: waits for an order popup, clicks Close, waits for the home-screen Accept, clicks Accept, repeats. Nothing else. All payment/verification stays manual on your phone. Targets captured from the LIVE site 2026-07-19; see _targeting_notes before changing them.",
+  "_comment": "P2P.me — auto Slide-to-Accept. Runs forever: waits for an order popup's 'Slide to Accept' track and performs a trusted drag across it to accept. Nothing else. ALL payment/verification stays manual on your phone. The platform CHANGED (verified live 2026-08-05): acceptance is now a SLIDE, not a Close-then-Accept click. Clicking 'Close' now REJECTS the order — this recipe never does that. See _flow, _safety and _targeting_notes before changing anything.",
   "_how_to_run": "truklick run recipes/p2p-me/recipe.json      (opens its own browser; log in once, it keeps you logged in)\nStop with Ctrl+C, or press the hotkey below to pause/resume if your OS grants it.\nSee docs/QUICKSTART.md.",
-  "_targeting_notes": "DO NOT replace these with CSS selectors. lp.p2p.me is React + Tailwind: buttons have NO ids, only utility classes, and deep nth-of-type paths. The order popup is a Radix dialog whose container id is generated per render (e.g. div#radix-«rj»), so every CSS path inside it breaks on the next popup. Text/role were verified unique against live captures. Accept MUST stay role=button + exact name: while the popup is open the substring 'Accept' also appears in 'Slide to Accept' and 'Accept to view UPI ID', and a loose text match once clicked the wrong element (live, 2026-07-19). If role ever fails to match we WAIT rather than mis-click — on a payments dashboard, not clicking is the safe failure.",
-  "_reliability": "Live-validated 2026-07-19. NOTE: P2P.me offers the same order to 3-4 merchants, first to accept wins — so some cycles legitimately end with the order gone before we can accept. That is competition, not a fault. The expect step below distinguishes the two: EXPECT OK = we got it; EXPECT FAILED = someone else did (or it expired). The run summary reports the success rate.",
-  "name": "P2P.me — auto accept & close",
+  "_flow": "Order popup appears with a 'Slide to Accept' slider (accept) and a 'Close' LINK (reject). Slide to Accept -> a payment popup with a 'Slide to Complete' slider appears (WON). 'Slide to Complete' MOVES REAL MONEY and is done by hand on the phone; this recipe never touches it. If another merchant accepts first, a 'not accepted by you' dialog with a real Close BUTTON appears (LOST) — step 1 clears that at the top of the next pass.",
+  "_safety": "Exact-string matching is the safety boundary. The swipe targets text EXACTLY equal to 'Slide to Accept', so it can NEVER match 'Slide to Complete' (the money step) — a different string. There is no Close-to-reject step. The only Close this recipe ever clicks is role=button (the LOST-dialog dismissal); the order popup's reject-Close is a <p> and never matches role=button. If any target fails to resolve we WAIT rather than act — on a payments dashboard, not acting is the safe failure.",
+  "_targeting_notes": "DO NOT replace these with CSS selectors. lp.p2p.me is React; the popup is a Radix dialog whose container id is generated per render, so CSS paths break on every popup. The slider renders as nested elements that all report the SAME box except a narrow inner label: 'Slide to Accept' also appears on a ~105px <p> INSIDE the ~400px track. min_width:300 keeps only the wide track, so the drag spans the whole slider and not its label. Read the track's live box each run (its y varies with popup placement) — never hardcode coordinates.",
+  "_reliability": "P2P.me offers the same order to several merchants; first to complete the slide wins, so some cycles legitimately end with the order gone. That is competition, not a fault. The expect step distinguishes them: EXPECT OK = payment screen ('Slide to Complete') appeared = we got it; EXPECT FAILED = someone else did (or it expired). The run summary reports the success rate. Field note: the slider stays up ~1-2 min, so this is not a pure millisecond race — a browser drag (~200ms, animation-gated) can still lose to a merchant calling the accept API directly.",
+  "name": "P2P.me — auto slide-to-accept",
   "match_url": "https://lp.p2p.me/*",
   "url": "https://lp.p2p.me",
   "hotkey": "Escape",
   "loop": true,
-  "loop_delay_ms": 2,
+  "loop_delay_ms": 50,
   "steps": [
     {
-      "action": "wait_for",
-      "target": {
-        "text": "Close",
-        "exact": true
-      },
-      "timeout_ms": 60000,
-      "poll_ms": 2,
-      "_note": "Waits for the next order popup, re-checking every 10ms. Times out after 60s only to re-arm the loop — it keeps waiting forever."
-    },
-    {
-      "action": "click",
-      "target": {
-        "text": "Close",
-        "exact": true
-      },
-      "_note": "Dismisses the order popup. Non-committing."
-    },
-    {
-      "action": "wait_for",
+      "action": "condition",
       "target": {
         "role": "button",
-        "name": "Accept",
-        "exact": true
+        "name": "Close",
+        "exact": true,
+        "min_width": 200
       },
-      "timeout_ms": 40000,
-      "poll_ms": 2,
-      "_note": "Home-screen Accept appears after Close (~1s live). role=button + exact name so it can never match 'Slide to Accept'."
+      "exists": true,
+      "_note": "Clears a leftover 'not accepted by you' dialog from a previous lost order so the loop stays clean. This Close is a real <button> (role=button, full-width); the order popup's reject-Close is a <p> and can never match here — so this can never reject an order.",
+      "steps": [
+        {
+          "action": "click",
+          "target": {
+            "role": "button",
+            "name": "Close",
+            "exact": true,
+            "min_width": 200
+          }
+        }
+      ]
     },
     {
-      "action": "click",
+      "action": "wait_for",
       "target": {
-        "role": "button",
-        "name": "Accept",
-        "exact": true
+        "text": "Slide to Accept",
+        "exact": true,
+        "min_width": 300
       },
-      "_note": "Accepts the order. Delete THIS step to make the recipe close-only (dismiss popups, leave Accept to you)."
+      "timeout_ms": 120000,
+      "poll_ms": 30,
+      "_note": "Waits for the next order popup's slide track. min_width:300 selects the wide track, not the ~105px inner label. Times out after 120s only to re-arm the loop (and clear any LOST dialog) — it keeps waiting for orders forever."
+    },
+    {
+      "action": "swipe",
+      "target": {
+        "text": "Slide to Accept",
+        "exact": true,
+        "min_width": 300
+      },
+      "drag_steps": 30,
+      "step_delay_ms": 6,
+      "hold_ms": 120,
+      "start_pad": 24,
+      "end_pad": 4,
+      "_note": "Trusted drag across the whole track: grab ~24px in (the knob sits just inside the left), move in 30 steps @6ms, hold 120ms at the end, release. The slider watches for realistic motion; an instant jump or a release-on-arrival does not register. Delete THIS step to make the recipe watch-only (never accept)."
     },
     {
       "action": "expect",
       "target": {
-        "role": "button",
-        "name": "Accept",
-        "exact": true
+        "text": "Slide to Complete",
+        "exact": false
       },
-      "present": false,
-      "timeout_ms": 8000,
-      "poll_ms": 2,
-      "name": "order accepted (Accept button gone)",
-      "_note": "Verifies the OUTCOME, not just that we clicked. If Accept is still there we did not win the order."
+      "present": true,
+      "timeout_ms": 6000,
+      "poll_ms": 50,
+      "name": "order accepted (payment screen 'Slide to Complete' shown)",
+      "_note": "Verifies the OUTCOME, not just that we dragged. The payment popup's 'Slide to Complete' appears only if WE won the order. Absent = another merchant took it (or it expired). We only DETECT this string — never act on it."
     }
   ],
-  "_speed": "poll_ms=2 gives ~6ms from an element appearing to the click landing (measured), at ~24% of one CPU core while waiting. Tradeoff measured on this machine: poll 10 = 15.0ms/9.7% CPU, 5 = 10.9ms/15%, 2 = 6.2ms/24%, 0 = 3.0ms/50%. NOTE: local latency is now far below network round-trip to the site, so shaving further is unlikely to win more orders — the bottleneck has moved off this machine. Raise poll_ms if you want the CPU back."
+  "_speed": "poll_ms is deliberately modest (30ms wait, 50ms expect). The slider stays up ~1-2 min (see _reliability), so shaving poll further does not win more orders and just burns CPU. Raise the pads/steps/hold to tune the drag feel; lower poll_ms only if you have measured it helps."
 }
