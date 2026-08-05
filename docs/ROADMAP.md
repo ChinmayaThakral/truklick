@@ -41,6 +41,12 @@ minimized, on **Windows and Linux**.
 Exit criteria: run a recipe, minimize the window, watch it work on the real site,
 toggle with hotkey.  **ALL MET as of 2026-07-19 — PHASE 1 COMPLETE.**
 
+> **2026-08-05 — P2P.me flow change.** The site replaced *Close → home Accept* with a
+> single **Slide to Accept** drag (clicking Close now REJECTS). Engine + recipe moved
+> to the slide flow (ADR-015, FACT 8); slide path proven through the engine on a
+> self-test page. **Re-open item:** re-run the live minimized gate on the new slide
+> flow against lp.p2p.me — FACT 7 covered the click flow, not the slide.
+
 ## PHASE 2 — USABILITY FOR NON-CODERS  (largely delivered in v1, 2026-07-19)
 Goal: someone who can't code can create and run a recipe.
 

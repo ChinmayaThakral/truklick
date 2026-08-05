@@ -168,6 +168,38 @@
   swallowed. An update check must never delay startup or break a running recipe.
 - **Status:** ADOPTED. Revisit if/when code signing + notarization land.
 
+## ADR-015 — Slide-to-confirm targeting: `min_width`, `hold_ms`, exact-match safety
+- **Date:** 2026-08-05
+- **Context:** P2P.me replaced the *Close → home Accept* flow (FACT 6) with a single
+  **Slide to Accept** drag on the order popup. The old recipe's Close click now
+  **rejects** the order. Three things had to change for a correct, safe slide recipe;
+  all are kept generic (ADR-006), with P2P.me only as the example recipe.
+- **Decision:**
+  1. **`min_width` on a target** filters resolution to elements at least that wide.
+     Slide tracks nest the same text on a narrow inner label (~105px `<p>`) inside a
+     wide track (~400px). Without a width filter the deepest-text-match rule lands on
+     the label and the drag spans too little to accept. `min_width` selects the track.
+  2. **`hold_ms` (and `step_delay_ms`, `start_pad`/`end_pad`) on a `swipe`** — the
+     drag now dwells pressed at the end for `hold_ms` before releasing. Slide widgets
+     watch for realistic motion; releasing the instant the last move lands reads as a
+     jump and does not register. Generic to any slide-to-confirm control.
+  3. **Exact-string match is the safety boundary.** The swipe targets text EXACTLY
+     equal to "Slide to Accept", so it can never match "Slide to Complete" — the
+     money-moving slider, which must never be automated. There is no reject-Close step;
+     the only Close the recipe clicks is `role=button` (the lost-order dismissal),
+     which the order-popup's `<p>` reject-Close can never match.
+- **Evidence:** `tests/test_slider_e2e.py` + `examples/slider.html` — engine selects
+  the 400px track over the 105px label, fires a trusted (`isTrusted`) drag, and leaves
+  "Slide to Complete" untouched. Corroborated by live field operation 2026-08-05
+  (a standalone VPS auto-slider on the real site). See FACT 8.
+- **Also confirmed (no change needed):** the finder already judged visibility via
+  `getComputedStyle`, not `offsetParent` (correct for `position:fixed` modals), and
+  already scanned all tags incl. `<p>` — two bugs the field record hit in a separate
+  codebase but this engine never had.
+- **Status:** ADOPTED. Supersedes the Close→Accept *sequence* of the P2P.me recipe
+  (not the engine facts behind FACT 6). Open: run this engine's slide recipe against
+  live lp.p2p.me (FACT 8 open gate).
+
 ---
 
 ## TEMPLATE FOR NEW ADRs

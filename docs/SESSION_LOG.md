@@ -587,3 +587,54 @@ out. Everything green except documentation drift, now fixed:
   distribution gap** — downloads show an unsigned warning.
 State at signoff: working tree clean, in sync, 45 tests green, FACTS 1-7, ADRs 1-14,
 releases v0.1.0 through v0.1.5, nothing running, no sensitive data on disk.
+
+---
+
+## Session 8 — 2026-08-05 — P2P.me flow change: Close→Accept becomes Slide-to-Accept
+
+**The site changed.** P2P.me replaced the *Close order popup → click home Accept*
+flow with a single **Slide to Accept** drag on the order popup. Under the new flow
+**clicking "Close" REJECTS the order** — so the shipped recipe was rejecting every
+order it saw. This session brought the engine and the example recipe onto the new flow.
+(Source: live field operation on the VPS auto-slider, 4-5 Aug; carried in as verified
+facts, not assumptions.)
+
+**Engine (kept generic, ADR-006 / ADR-015):**
+- `targeting`: added **`min_width`** to targets. Slide tracks nest the same text on a
+  narrow inner label (~105px `<p>`) inside a wide track (~400px); without a width
+  filter the deepest-match rule lands on the label and a drag across it never accepts.
+  Threaded through the fast-path JS (text + role branches), `_fast_spec`, and the
+  general `find()` fallback.
+- `cdp_input.drag`: added **`hold_ms`** (dwell pressed at the end before releasing —
+  a slide that releases on arrival reads as a jump and does not register) and
+  **`step_delay_ms`** pacing.
+- `runner._exec_swipe`: resolves the slider via the width-aware `find_click_point`,
+  and passes `drag_steps` / `step_delay_ms` / `hold_ms` / `start_pad` / `end_pad`
+  through. Note: the drag step **count** is `drag_steps`, not `steps` — `steps` is
+  reserved for nested step lists (loop/condition), and reusing it crashed validation.
+
+**Recipe (`recipes/p2p-me/recipe.json`) rewritten to the slide flow:**
+1. `condition` — if a leftover "not accepted by you" dialog is up (its Close is a real
+   `role=button`), dismiss it. The order-popup reject-Close is a `<p>` and can never
+   match `role=button`, so this can never reject an order.
+2. `wait_for` "Slide to Accept" (exact, `min_width:300`).
+3. `swipe` across the track: grab 24px in, 30 steps @6ms, hold 120ms, release.
+4. `expect` "Slide to Complete" present → WON verification + success-rate stats.
+**Safety:** exact-string match is the boundary — the swipe can never touch
+"Slide to Complete" (the money slider). No reject-Close step exists.
+
+**Two bugs the field record hit in a SEPARATE codebase that this engine never had:**
+`offsetParent === null` on `position:fixed` modals (our finder uses `getComputedStyle`)
+and a selector that omitted `<p>` (our fast path scans `*`). Confirmed correct here;
+`examples/slider.html` uses `position:fixed` to keep it that way.
+
+**Proof:** `tests/test_slider_e2e.py` — through the real engine, `min_width` resolved
+the 400px track (bare target resolved the 105px label), a CDP drag with end-hold fired
+`__accept` with `isTrusted === true`, and `__complete` stayed null. FACT 8 recorded.
+**46 tests green.**
+
+**Open gate (honest):** the live slide was verified by a *standalone* VPS auto-slider,
+NOT yet by this engine's recipe against live lp.p2p.me. Running the recipe live and
+confirming a real order accepted is the outstanding product-level gate (the slide
+equivalent of FACT 7 following FACT 6). Version left at 0.1.5 — no tag/release cut
+this session (would need `gh auth switch --user ChinmayaThakral` and is the user's call).

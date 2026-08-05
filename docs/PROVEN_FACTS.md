@@ -86,6 +86,12 @@
 - **Why it matters:** closes the loop from PROVEN_FACTS 1–4 (trusted input works) to
   "the platform actually automates a real task from a shareable recipe."
 - **Status:** ✅ PROVEN on macOS against live lp.p2p.me, [date: 2026-07-19].
+- **⚠️ SEQUENCE SUPERSEDED 2026-08-05 (site flow changed, see FACT 8):** P2P.me
+  replaced *Close → home Accept* with a single **Slide to Accept** drag on the
+  order popup. Under the new flow **clicking "Close" REJECTS the order.** This FACT
+  remains a true record of engine-drives-real-site on that date, and the trusted-
+  input machinery it proved is unchanged — but the **Close→Accept step sequence is
+  obsolete.** The current recipe slides; it never clicks the order-popup Close.
 - **IMPORTANT RELIABILITY CAVEAT — do not read this as "it works reliably":**
   In the same run, **1 of 2 order cycles FAILED**. On the first cycle Close was
   clicked and the Accept button then never appeared for 15s of continuous polling,
@@ -123,6 +129,40 @@
   (Accept never appeared; `PASS ABORTED AFTER 1 CLICK(S)` fired correctly). Orders go
   to 3-4 merchants, first to accept wins, so ~50% losses are competition, not defects.
   Session tally: 2 orders won (both `EXPECT OK` verified), 2 lost to competition.
+- **Note (2026-08-05):** the minimized-trusted-input property proven here is
+  unaffected by the flow change; only the *action* changed from a click to a slide.
+
+## FACT 8 — The engine performs a trusted SLIDE-to-confirm end-to-end, safely
+- **Claim:** Truklick's engine performs a slide-to-confirm gesture as genuinely
+  trusted input (`isTrusted === true`), selects the **wide track** rather than its
+  narrow inner text label, and — critically — an **exact-string** target for
+  "Slide to Accept" can never activate the adjacent "Slide to Complete" money
+  slider. This is the engine path behind the current P2P.me recipe after the site
+  replaced Close→Accept with Slide to Accept (see FACT 6 supersede note).
+- **Why it matters:** acceptance is now a drag, not a click. Two traps make a naive
+  slider recipe dangerous or useless:
+  1. the text "Slide to Accept" also sits on a ~105px `<p>` INSIDE the ~400px track,
+     so a text match lands on the label and the drag spans too little to accept —
+     `min_width` selects the track;
+  2. "Slide to Complete" moves real money and must NEVER be automated — exact-string
+     matching is the safety boundary that keeps the two apart.
+- **Proof:** `tests/test_slider_e2e.py` + `examples/slider.html` (both money and
+  accept sliders on a `position:fixed` modal-like page). Through the real engine:
+  `min_width` resolved the 400px track (bare target resolved the 105px label), a CDP
+  drag with an end-hold fired `__accept` with `isTrusted === true`, and
+  `__complete` was **null** — the money slider untouched. Green on macOS.
+- **Method notes carried from live field operation (2026-08-05):** these are why the
+  engine already handled the finder correctly. `position:fixed` elements report
+  `offsetParent === null`; using `!offsetParent` as a visibility test hides modals —
+  the finder uses `getComputedStyle` (display/visibility/opacity), which is correct.
+  A slide must be a real drag (press → many interpolated moves → **hold** → release);
+  an instant jump or release-on-arrival does not register — hence `hold_ms`.
+- **Status:** ✅ PROVEN through the engine on macOS (self-test page), [date: 2026-08-05].
+- **⚠️ OPEN GATE (honest):** the live slide was verified in the field by a *separate*
+  standalone auto-slider on the VPS (not the Truklick engine). Running **this
+  engine's recipe against live lp.p2p.me and confirming a real order accepted** is
+  the outstanding product-level gate — the slide equivalent of how FACT 7 followed
+  FACT 6. Not yet done in this session.
 
 ---
 
